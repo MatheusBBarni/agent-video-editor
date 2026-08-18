@@ -1,6 +1,8 @@
 <!-- prettier-ignore -->
 <div align="center">
 
+<img src="assets/icon.png" alt="ave" width="160">
+
 # ave
 
 *Typed ffmpeg for agents. JSON on stdout.*
@@ -49,6 +51,13 @@ From this repo:
 
 ```bash
 cargo install --path .
+ave doctor
+```
+
+From Git (no crates.io):
+
+```bash
+cargo install --git https://github.com/MatheusBBarni/agent-video-editor --locked
 ave doctor
 ```
 
