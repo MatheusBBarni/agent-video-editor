@@ -96,6 +96,46 @@ fn fail(op: &'static str, error: &'static str, message: impl Into<String>) -> ! 
     std::process::exit(1);
 }
 
+#[derive(PartialEq, Eq)]
+struct VideoShape {
+    codec: String,
+    width: u32,
+    height: u32,
+    fps: String,
+}
+
+fn probe_json(ffprobe_bin: &str, input: &str) -> Option<serde_json::Value> {
+    let output = std::process::Command::new(ffprobe_bin)
+        .args([
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            input,
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    serde_json::from_slice(&output.stdout).ok()
+}
+
+fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {
+    let probe = probe_json(ffprobe_bin, input)?;
+    let video = probe["streams"]
+        .as_array()
+        .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"))?;
+    Some(VideoShape {
+        codec: video["codec_name"].as_str().unwrap_or("").to_string(),
+        width: video["width"].as_u64().unwrap_or(0) as u32,
+        height: video["height"].as_u64().unwrap_or(0) as u32,
+        fps: video["avg_frame_rate"].as_str().unwrap_or("").to_string(),
+    })
+}
+
 fn tool_version(bin: &str) -> Option<String> {
     let output = std::process::Command::new(bin).arg("-version").output().ok()?;
     if !output.status.success() {
@@ -141,7 +181,14 @@ fn main() {
                     format!("output exists and --no-overwrite was set: {output}"),
                 );
             }
-            let ffmpeg = vec![
+            let shapes: Vec<_> = inputs
+                .iter()
+                .filter_map(|input| probe_video(ffprobe_bin, input))
+                .collect();
+            let matched = shapes.len() == inputs.len()
+                && shapes.windows(2).all(|w| w[0] == w[1]);
+            let copy = shapes.is_empty() || matched;
+            let mut ffmpeg = vec![
                 "ffmpeg".into(),
                 "-y".into(),
                 "-f".into(),
@@ -150,10 +197,26 @@ fn main() {
                 "0".into(),
                 "-i".into(),
                 "concat-list.txt".into(),
-                "-c".into(),
-                "copy".into(),
-                output.clone(),
             ];
+            if copy {
+                ffmpeg.extend(["-c".into(), "copy".into()]);
+            } else {
+                ffmpeg.extend([
+                    "-c:v".into(),
+                    "libx264".into(),
+                    "-pix_fmt".into(),
+                    "yuv420p".into(),
+                    "-crf".into(),
+                    "23".into(),
+                    "-preset".into(),
+                    "medium".into(),
+                    "-c:a".into(),
+                    "aac".into(),
+                    "-movflags".into(),
+                    "+faststart".into(),
+                ]);
+            }
+            ffmpeg.push(output.clone());
             let envelope = Envelope {
                 ok: true,
                 op: "concat",
