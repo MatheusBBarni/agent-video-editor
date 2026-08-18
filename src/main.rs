@@ -1,3 +1,5 @@
+mod recipes;
+
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -33,8 +35,12 @@ enum Command {
         accurate: bool,
     },
     Doctor,
-    Run { plan: String },
-    Info { input: String },
+    Run {
+        plan: String,
+    },
+    Info {
+        input: String,
+    },
     Concat {
         inputs: Vec<String>,
         #[arg(short = 'o', long = "output")]
@@ -184,11 +190,7 @@ fn run_ffmpeg(op: &'static str, argv: &[String]) {
         .output()
         .unwrap_or_else(|e| fail(op, "ffmpeg_failed", e.to_string()));
     if !output.status.success() {
-        fail(
-            op,
-            "ffmpeg_failed",
-            String::from_utf8_lossy(&output.stderr),
-        );
+        fail(op, "ffmpeg_failed", String::from_utf8_lossy(&output.stderr));
     }
 }
 
@@ -263,22 +265,11 @@ fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {
     })
 }
 
-fn atempo_filter(mut factor: f64) -> String {
-    let mut parts = Vec::new();
-    while factor > 2.0 {
-        parts.push("atempo=2.0".to_string());
-        factor /= 2.0;
-    }
-    while factor < 0.5 {
-        parts.push("atempo=0.5".to_string());
-        factor /= 0.5;
-    }
-    parts.push(format!("atempo={factor}"));
-    parts.join(",")
-}
-
 fn tool_version(bin: &str) -> Option<String> {
-    let output = std::process::Command::new(bin).arg("-version").output().ok()?;
+    let output = std::process::Command::new(bin)
+        .arg("-version")
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -325,7 +316,13 @@ fn main() {
             for (idx, step) in parsed.steps.into_iter().enumerate() {
                 let op = step["op"].as_str().unwrap_or("");
                 if op != "trim" {
-                    fail_run(idx, "unknown_op", format!("unknown op: {op}"), steps, written);
+                    fail_run(
+                        idx,
+                        "unknown_op",
+                        format!("unknown op: {op}"),
+                        steps,
+                        written,
+                    );
                 }
                 let input = step["input"].as_str().unwrap_or("").to_string();
                 let output = match step["output"].as_str() {
@@ -361,45 +358,7 @@ fn main() {
                     );
                 }
                 let accurate = step["accurate"].as_bool().unwrap_or(false);
-                let ffmpeg = if accurate {
-                    vec![
-                        "ffmpeg".into(),
-                        "-y".into(),
-                        "-ss".into(),
-                        from,
-                        "-to".into(),
-                        to,
-                        "-i".into(),
-                        input,
-                        "-c:v".into(),
-                        "libx264".into(),
-                        "-pix_fmt".into(),
-                        "yuv420p".into(),
-                        "-crf".into(),
-                        "23".into(),
-                        "-preset".into(),
-                        "medium".into(),
-                        "-c:a".into(),
-                        "aac".into(),
-                        "-movflags".into(),
-                        "+faststart".into(),
-                        output.clone(),
-                    ]
-                } else {
-                    vec![
-                        "ffmpeg".into(),
-                        "-y".into(),
-                        "-ss".into(),
-                        from,
-                        "-to".into(),
-                        to,
-                        "-i".into(),
-                        input,
-                        "-c".into(),
-                        "copy".into(),
-                        output.clone(),
-                    ]
-                };
+                let ffmpeg = recipes::trim_argv(&from, &to, &input, &output, accurate);
                 if !cli.dry_run {
                     let result = std::process::Command::new(&ffmpeg[0])
                         .args(&ffmpeg[1..])
@@ -434,10 +393,18 @@ fn main() {
         }
         Command::Convert { input, output } => {
             let Some(output) = output else {
-                fail("convert", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "convert",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
-                fail("convert", "missing_input", format!("input not found: {input}"));
+                fail(
+                    "convert",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
             }
             let gif = std::path::Path::new(&output)
                 .extension()
@@ -451,26 +418,7 @@ fn main() {
                 );
             }
             if gif {
-                let pass1 = vec![
-                    "ffmpeg".into(),
-                    "-y".into(),
-                    "-i".into(),
-                    input.clone(),
-                    "-vf".into(),
-                    "fps=15,scale=480:-1:flags=lanczos,palettegen".into(),
-                    "palette.png".into(),
-                ];
-                let pass2 = vec![
-                    "ffmpeg".into(),
-                    "-y".into(),
-                    "-i".into(),
-                    input,
-                    "-i".into(),
-                    "palette.png".into(),
-                    "-filter_complex".into(),
-                    "fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse".into(),
-                    output.clone(),
-                ];
+                let (pass1, pass2) = recipes::gif_passes(&input, &output);
                 let envelope = ConvertEnvelope {
                     ok: true,
                     op: "convert",
@@ -480,7 +428,7 @@ fn main() {
                 };
                 println!("{}", serde_json::to_string(&envelope).expect("json"));
             } else {
-                let ffmpeg = vec!["ffmpeg".into(), "-y".into(), "-i".into(), input, output.clone()];
+                let ffmpeg = recipes::convert_argv(&input, &output);
                 let envelope = Envelope {
                     ok: true,
                     op: "convert",
@@ -497,10 +445,18 @@ fn main() {
             output,
         } => {
             let Some(output) = output else {
-                fail("compress", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "compress",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
-                fail("compress", "missing_input", format!("input not found: {input}"));
+                fail(
+                    "compress",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
             }
             if cli.copy_only {
                 fail(
@@ -509,19 +465,7 @@ fn main() {
                     "compress requires re-encode; --copy-only refuses this operation",
                 );
             }
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-crf".into(),
-                crf.to_string(),
-                "-preset".into(),
-                preset,
-                "-c:a".into(),
-                "copy".into(),
-                output.clone(),
-            ];
+            let ffmpeg = recipes::compress_argv(&input, &output, crf, &preset);
             let envelope = Envelope {
                 ok: true,
                 op: "compress",
@@ -537,13 +481,25 @@ fn main() {
             output,
         } => {
             let Some(output) = output else {
-                fail("overlay", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "overlay",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
-                fail("overlay", "missing_input", format!("input not found: {input}"));
+                fail(
+                    "overlay",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
             }
             if !std::path::Path::new(&image).exists() {
-                fail("overlay", "missing_image", format!("image not found: {image}"));
+                fail(
+                    "overlay",
+                    "missing_image",
+                    format!("image not found: {image}"),
+                );
             }
             if cli.copy_only {
                 fail(
@@ -552,31 +508,15 @@ fn main() {
                     "overlay requires re-encode; --copy-only refuses this operation",
                 );
             }
-            let expr = match position.as_deref().unwrap_or("top-right") {
-                "top-left" => "overlay=10:10",
-                "top-right" => "overlay=W-w-10:10",
-                "bottom-left" => "overlay=10:H-h-10",
-                "bottom-right" => "overlay=W-w-10:H-h-10",
-                "center" => "overlay=(W-w)/2:(H-h)/2",
-                other => fail(
-                    "overlay",
-                    "unknown_position",
-                    format!("unknown position: {other}"),
-                ),
-            };
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-i".into(),
-                image,
-                "-filter_complex".into(),
-                expr.into(),
-                "-c:a".into(),
-                "copy".into(),
-                output.clone(),
-            ];
+            let expr = recipes::overlay_expr(position.as_deref().unwrap_or("top-right"))
+                .unwrap_or_else(|| {
+                    fail(
+                        "overlay",
+                        "unknown_position",
+                        format!("unknown position: {}", position.unwrap_or_default()),
+                    )
+                });
+            let ffmpeg = recipes::overlay_argv(&input, &image, &output, expr);
             let envelope = Envelope {
                 ok: true,
                 op: "overlay",
@@ -613,16 +553,7 @@ fn main() {
                     "replace-audio requires --mute, --audio, or --mix",
                 );
             }
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-c:v".into(),
-                "copy".into(),
-                "-an".into(),
-                output.clone(),
-            ];
+            let ffmpeg = recipes::mute_argv(&input, &output);
             let envelope = Envelope {
                 ok: true,
                 op: "replace-audio",
@@ -666,16 +597,7 @@ fn main() {
                     format!("unknown audio format: {other}"),
                 ),
             };
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-vn".into(),
-                "-acodec".into(),
-                codec.into(),
-                output.clone(),
-            ];
+            let ffmpeg = recipes::extract_audio_argv(&input, &output, codec);
             let envelope = Envelope {
                 ok: true,
                 op: "extract-audio",
@@ -690,10 +612,18 @@ fn main() {
             output,
         } => {
             let Some(output) = output else {
-                fail("speed", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "speed",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
-                fail("speed", "missing_input", format!("input not found: {input}"));
+                fail(
+                    "speed",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
             }
             if same_file(&input, &output) {
                 fail(
@@ -703,7 +633,11 @@ fn main() {
                 );
             }
             if factor <= 0.0 {
-                fail("speed", "invalid_factor", "speed factor must be greater than 0");
+                fail(
+                    "speed",
+                    "invalid_factor",
+                    "speed factor must be greater than 0",
+                );
             }
             if cli.copy_only {
                 fail(
@@ -712,19 +646,7 @@ fn main() {
                     "speed requires re-encode; --copy-only refuses this operation",
                 );
             }
-            let setpts = format!("setpts={}*PTS", 1.0 / factor);
-            let atempo = atempo_filter(factor);
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-filter:v".into(),
-                setpts,
-                "-filter:a".into(),
-                atempo,
-                output.clone(),
-            ];
+            let ffmpeg = recipes::speed_argv(&input, &output, factor);
             let envelope = Envelope {
                 ok: true,
                 op: "speed",
@@ -739,10 +661,18 @@ fn main() {
             output,
         } => {
             let Some(output) = output else {
-                fail("resize", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "resize",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
-                fail("resize", "missing_input", format!("input not found: {input}"));
+                fail(
+                    "resize",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
             }
             if same_file(&input, &output) {
                 fail(
@@ -759,37 +689,20 @@ fn main() {
                 );
             }
             let Some(preset) = preset else {
-                fail("resize", "missing_preset", "resize requires --preset or --width and --height");
+                fail(
+                    "resize",
+                    "missing_preset",
+                    "resize requires --preset or --width and --height",
+                );
             };
-            let (w, h) = match preset.as_str() {
-                "tiktok" => (1080, 1920),
-                "youtube" | "twitter" => (1920, 1080),
-                "instagram" => (1080, 1350),
-                "square" => (1080, 1080),
-                other => fail("resize", "unknown_preset", format!("unknown preset: {other}")),
-            };
-            let vf = format!(
-                "scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black"
-            );
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-i".into(),
-                input,
-                "-vf".into(),
-                vf,
-                "-c:v".into(),
-                "libx264".into(),
-                "-pix_fmt".into(),
-                "yuv420p".into(),
-                "-crf".into(),
-                "23".into(),
-                "-preset".into(),
-                "medium".into(),
-                "-c:a".into(),
-                "copy".into(),
-                output.clone(),
-            ];
+            let (w, h) = recipes::preset_size(&preset).unwrap_or_else(|| {
+                fail(
+                    "resize",
+                    "unknown_preset",
+                    format!("unknown preset: {preset}"),
+                )
+            });
+            let ffmpeg = recipes::resize_argv(&input, &output, &recipes::scale_pad(w, h));
             let envelope = Envelope {
                 ok: true,
                 op: "resize",
@@ -800,14 +713,26 @@ fn main() {
         }
         Command::Concat { inputs, output } => {
             let Some(output) = output else {
-                fail("concat", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "concat",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if inputs.len() < 2 {
-                fail("concat", "too_few_inputs", "concat requires at least two inputs");
+                fail(
+                    "concat",
+                    "too_few_inputs",
+                    "concat requires at least two inputs",
+                );
             }
             for input in &inputs {
                 if !std::path::Path::new(input).exists() {
-                    fail("concat", "missing_input", format!("input not found: {input}"));
+                    fail(
+                        "concat",
+                        "missing_input",
+                        format!("input not found: {input}"),
+                    );
                 }
                 if same_file(input, &output) {
                     fail(
@@ -828,38 +753,9 @@ fn main() {
                 .iter()
                 .filter_map(|input| probe_video(ffprobe_bin, input))
                 .collect();
-            let matched = shapes.len() == inputs.len()
-                && shapes.windows(2).all(|w| w[0] == w[1]);
+            let matched = shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1]);
             let copy = shapes.is_empty() || matched;
-            let mut ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-f".into(),
-                "concat".into(),
-                "-safe".into(),
-                "0".into(),
-                "-i".into(),
-                "concat-list.txt".into(),
-            ];
-            if copy {
-                ffmpeg.extend(["-c".into(), "copy".into()]);
-            } else {
-                ffmpeg.extend([
-                    "-c:v".into(),
-                    "libx264".into(),
-                    "-pix_fmt".into(),
-                    "yuv420p".into(),
-                    "-crf".into(),
-                    "23".into(),
-                    "-preset".into(),
-                    "medium".into(),
-                    "-c:a".into(),
-                    "aac".into(),
-                    "-movflags".into(),
-                    "+faststart".into(),
-                ]);
-            }
-            ffmpeg.push(output.clone());
+            let ffmpeg = recipes::concat_argv("concat-list.txt", &output, copy);
             let envelope = Envelope {
                 ok: true,
                 op: "concat",
@@ -907,9 +803,7 @@ fn main() {
                 .unwrap_or(0);
             let video = probe["streams"]
                 .as_array()
-                .and_then(|streams| {
-                    streams.iter().find(|s| s["codec_type"] == "video")
-                });
+                .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
             let width = video.and_then(|s| s["width"].as_u64()).unwrap_or(0) as u32;
             let height = video.and_then(|s| s["height"].as_u64()).unwrap_or(0) as u32;
             let envelope = InfoEnvelope {
@@ -950,7 +844,11 @@ fn main() {
             accurate,
         } => {
             let Some(output) = output else {
-                fail("trim", "missing_output", "mutating commands require -o / --output");
+                fail(
+                    "trim",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
             };
             if !std::path::Path::new(&input).exists() {
                 fail("trim", "missing_input", format!("input not found: {input}"));
@@ -969,45 +867,7 @@ fn main() {
                     format!("output exists and --no-overwrite was set: {output}"),
                 );
             }
-            let ffmpeg = if accurate {
-                vec![
-                    "ffmpeg".into(),
-                    "-y".into(),
-                    "-ss".into(),
-                    from,
-                    "-to".into(),
-                    to,
-                    "-i".into(),
-                    input,
-                    "-c:v".into(),
-                    "libx264".into(),
-                    "-pix_fmt".into(),
-                    "yuv420p".into(),
-                    "-crf".into(),
-                    "23".into(),
-                    "-preset".into(),
-                    "medium".into(),
-                    "-c:a".into(),
-                    "aac".into(),
-                    "-movflags".into(),
-                    "+faststart".into(),
-                    output.clone(),
-                ]
-            } else {
-                vec![
-                    "ffmpeg".into(),
-                    "-y".into(),
-                    "-ss".into(),
-                    from,
-                    "-to".into(),
-                    to,
-                    "-i".into(),
-                    input,
-                    "-c".into(),
-                    "copy".into(),
-                    output.clone(),
-                ]
-            };
+            let ffmpeg = recipes::trim_argv(&from, &to, &input, &output, accurate);
             if !cli.dry_run {
                 run_ffmpeg("trim", &ffmpeg);
             }

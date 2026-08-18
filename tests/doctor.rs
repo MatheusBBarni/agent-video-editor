@@ -17,9 +17,7 @@ fn doctor_reports_ffmpeg_and_ffprobe_versions() {
     assert_eq!(v["ffmpeg_found"], true);
     assert_eq!(v["ffprobe_found"], true);
 
-    let ffmpeg_version = v["ffmpeg_version"]
-        .as_str()
-        .expect("ffmpeg_version string");
+    let ffmpeg_version = v["ffmpeg_version"].as_str().expect("ffmpeg_version string");
     let ffprobe_version = v["ffprobe_version"]
         .as_str()
         .expect("ffprobe_version string");

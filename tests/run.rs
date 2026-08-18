@@ -34,7 +34,12 @@ fn run_dry_run_allows_missing_intermediate_outputs() {
     assert_eq!(steps[0]["op"], "trim");
     assert_eq!(steps[1]["ok"], true);
     assert_eq!(steps[1]["op"], "trim");
-    assert!(steps[1]["ffmpeg"].as_array().unwrap().contains(&Value::from("a.mp4")));
+    assert!(
+        steps[1]["ffmpeg"]
+            .as_array()
+            .unwrap()
+            .contains(&Value::from("a.mp4"))
+    );
     assert!(!dir.path().join("a.mp4").exists());
     assert!(!dir.path().join("b.mp4").exists());
 }
@@ -43,7 +48,8 @@ fn run_dry_run_allows_missing_intermediate_outputs() {
 fn run_reads_plan_from_stdin() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
-    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"0","to":"10","output":"a.mp4"}]}"#;
+    let plan =
+        r#"{"steps":[{"op":"trim","input":"in.mp4","from":"0","to":"10","output":"a.mp4"}]}"#;
 
     let assert = Command::cargo_bin("ave")
         .unwrap()
@@ -128,7 +134,10 @@ fn run_stops_on_failure_and_keeps_earlier_output() {
     let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
     assert_eq!(v["ok"], false);
     assert_eq!(v["failed_step"], 1);
-    assert!(dir.path().join("a.mp4").exists(), "step 1 output must be kept");
+    assert!(
+        dir.path().join("a.mp4").exists(),
+        "step 1 output must be kept"
+    );
     assert!(!dir.path().join("c.mp4").exists(), "step 3 must not run");
 }
 

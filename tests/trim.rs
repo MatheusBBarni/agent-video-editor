@@ -38,10 +38,7 @@ fn trim_dry_run_prints_copy_recipe_and_writes_nothing() {
             "ffmpeg", "-y", "-ss", "30", "-to", "105", "-i", "in.mp4", "-c", "copy", "out.mp4"
         ])
     );
-    assert!(
-        !output.exists(),
-        "dry-run must not write the output file"
-    );
+    assert!(!output.exists(), "dry-run must not write the output file");
 }
 
 #[test]
@@ -116,7 +113,10 @@ fn trim_missing_input_fails_and_writes_no_output() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
     let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
     assert_eq!(v["ok"], false);
-    assert!(!output.exists(), "must not write output when input is missing");
+    assert!(
+        !output.exists(),
+        "must not write output when input is missing"
+    );
 }
 
 #[test]
@@ -241,14 +241,7 @@ fn trim_writes_shorter_playable_file() {
         .unwrap()
         .current_dir(dir.path())
         .args([
-            "trim",
-            "clip.mp4",
-            "--from",
-            "1",
-            "--to",
-            "3",
-            "-o",
-            "out.mp4",
+            "trim", "clip.mp4", "--from", "1", "--to", "3", "-o", "out.mp4",
         ])
         .assert()
         .success();
