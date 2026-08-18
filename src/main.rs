@@ -3,6 +3,7 @@ mod exec;
 mod op;
 mod probe;
 mod recipes;
+mod skill;
 
 use clap::{Parser, Subcommand};
 use error::{RunEnvelope, print_json};
@@ -108,6 +109,20 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    /// Copy the ave agent skill into a skills folder
+    #[command(name = "install-skill")]
+    InstallSkill {
+        /// Agent providers to install into (repeatable or comma-separated).
+        /// One of: agents, claude, pi, cursor, all
+        #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
+        provider: Vec<skill::Provider>,
+        /// Install into DIR/ave (repeatable). Skips --provider
+        #[arg(long = "dir")]
+        dirs: Vec<std::path::PathBuf>,
+        /// Use home-dir paths (~/.claude/skills, …) instead of the project
+        #[arg(long)]
+        global: bool,
+    },
 }
 
 fn main() {
@@ -122,6 +137,13 @@ fn main() {
 
     match cli.command {
         Command::Run { plan } => run_cmd(&plan, &ctx),
+        Command::InstallSkill {
+            provider,
+            dirs,
+            global,
+        } => {
+            skill::install(&dirs, &provider, global, cli.dry_run, cli.no_overwrite);
+        }
         command => match to_op(command).and_then(|op| execute(&op, &ctx)) {
             Ok(Outcome::Edit(env)) => print_json(&env),
             Ok(Outcome::Info(env)) => print_json(&env),
@@ -196,7 +218,9 @@ struct PlanFile {
 
 fn to_op(command: Command) -> Result<Op, error::Error> {
     match command {
-        Command::Run { .. } => unreachable!("run is handled separately"),
+        Command::Run { .. } | Command::InstallSkill { .. } => {
+            unreachable!("handled separately")
+        }
         Command::Doctor => Ok(Op::Doctor),
         Command::Info { input } => Ok(Op::Info { input }),
         Command::Trim {

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Video",
+      "description": "Agent-safe local video editing with the ave CLI.",
+      "skills": ["ave"]
+    }
+  ]
+}
