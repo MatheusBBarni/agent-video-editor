@@ -1,0 +1,11 @@
+[package]
+name = "ave"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[dev-dependencies]
+assert_cmd = "2"
+serde_json = "1"
+tempfile = "3"
