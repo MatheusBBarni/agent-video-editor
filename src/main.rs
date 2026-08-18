@@ -9,6 +9,8 @@ struct Cli {
     #[arg(long, global = true)]
     no_overwrite: bool,
     #[arg(long, global = true)]
+    copy_only: bool,
+    #[arg(long, global = true)]
     ffmpeg: Option<String>,
     #[arg(long, global = true)]
     ffprobe: Option<String>,
@@ -33,6 +35,13 @@ enum Command {
     Info { input: String },
     Concat {
         inputs: Vec<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Resize {
+        input: String,
+        #[arg(long)]
+        preset: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -155,6 +164,33 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Resize {
+            input,
+            preset: _,
+            output,
+        } => {
+            let Some(output) = output else {
+                fail("resize", "missing_output", "mutating commands require -o / --output");
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail("resize", "missing_input", format!("input not found: {input}"));
+            }
+            if same_file(&input, &output) {
+                fail(
+                    "resize",
+                    "in_place",
+                    "refusing in-place edit: output resolves to the same file as input",
+                );
+            }
+            if cli.copy_only {
+                fail(
+                    "resize",
+                    "copy_only",
+                    "resize requires re-encode; --copy-only refuses this operation",
+                );
+            }
+            let _ = output;
+        }
         Command::Concat { inputs, output } => {
             let Some(output) = output else {
                 fail("concat", "missing_output", "mutating commands require -o / --output");
