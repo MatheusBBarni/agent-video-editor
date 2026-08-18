@@ -118,3 +118,34 @@ fn trim_missing_input_fails_and_writes_no_output() {
     assert_eq!(v["ok"], false);
     assert!(!output.exists(), "must not write output when input is missing");
 }
+
+#[test]
+fn trim_no_overwrite_fails_when_output_exists() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"input-bytes").unwrap();
+    let output = dir.path().join("out.mp4");
+    fs::write(&output, b"existing-output").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "30",
+            "--to",
+            "105",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+            "--no-overwrite",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(fs::read(&output).unwrap(), b"existing-output");
+}
