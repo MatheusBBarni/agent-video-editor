@@ -39,6 +39,16 @@ struct FailEnvelope {
     message: String,
 }
 
+fn same_file(a: &str, b: &str) -> bool {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let pa = cwd.join(a);
+    let pb = cwd.join(b);
+    match (pa.canonicalize(), pb.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => pa == pb,
+    }
+}
+
 fn fail(op: &'static str, error: &'static str, message: impl Into<String>) -> ! {
     let envelope = FailEnvelope {
         ok: false,
@@ -62,6 +72,13 @@ fn main() {
             let Some(output) = output else {
                 fail("trim", "missing_output", "mutating commands require -o / --output");
             };
+            if same_file(&input, &output) {
+                fail(
+                    "trim",
+                    "in_place",
+                    "refusing in-place edit: output resolves to the same file as input",
+                );
+            }
             let ffmpeg = vec![
                 "ffmpeg".into(),
                 "-y".into(),
