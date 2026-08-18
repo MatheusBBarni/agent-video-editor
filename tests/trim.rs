@@ -149,3 +149,43 @@ fn trim_no_overwrite_fails_when_output_exists() {
     assert_eq!(v["ok"], false);
     assert_eq!(fs::read(&output).unwrap(), b"existing-output");
 }
+
+#[test]
+fn trim_accurate_dry_run_reencodes_instead_of_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "30",
+            "--to",
+            "105",
+            "-o",
+            "out.mp4",
+            "--accurate",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    let argv: Vec<&str> = v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        !argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "accurate trim must not stream-copy: {argv:?}"
+    );
+    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
+    assert!(argv.contains(&"aac"), "expected aac in {argv:?}");
+}
