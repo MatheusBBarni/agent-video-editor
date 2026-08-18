@@ -49,3 +49,74 @@ fn concat_dry_run_uses_concat_demuxer_and_writes_nothing() {
         "dry-run must not leave concat list or output: {leftover:?}"
     );
 }
+
+fn ffmpeg_available() -> bool {
+    std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn write_fixture(path: &std::path::Path, size: &str) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("testsrc=duration=1:size={size}:rate=30"),
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:duration=1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-pix_fmt",
+            "yuv420p",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg");
+    assert!(
+        status.status.success(),
+        "ffmpeg fixture failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
+#[test]
+fn concat_mismatch_dry_run_reencodes() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("a.mp4"), "320x240");
+    write_fixture(&dir.path().join("b.mp4"), "640x360");
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["concat", "a.mp4", "b.mp4", "-o", "out.mp4", "--dry-run"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    let argv: Vec<&str> = v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        !argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "mismatched concat must re-encode: {argv:?}"
+    );
+    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
+}
