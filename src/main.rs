@@ -72,6 +72,9 @@ fn main() {
             let Some(output) = output else {
                 fail("trim", "missing_output", "mutating commands require -o / --output");
             };
+            if !std::path::Path::new(&input).exists() {
+                fail("trim", "missing_input", format!("input not found: {input}"));
+            }
             if same_file(&input, &output) {
                 fail(
                     "trim",
