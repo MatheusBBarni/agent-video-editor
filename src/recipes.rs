@@ -136,6 +136,17 @@ pub fn speed_argv(input: &str, output: &str, factor: f64) -> Vec<String> {
     ]
 }
 
+pub fn audio_codec(ext: &str) -> Option<&'static str> {
+    match ext {
+        "mp3" => Some("libmp3lame"),
+        "wav" => Some("pcm_s16le"),
+        "aac" => Some("aac"),
+        "flac" => Some("flac"),
+        "copy" => Some("copy"),
+        _ => None,
+    }
+}
+
 pub fn extract_audio_argv(input: &str, output: &str, codec: &str) -> Vec<String> {
     vec![
         "ffmpeg".into(),
