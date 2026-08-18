@@ -31,6 +31,11 @@ enum Command {
     },
     Doctor,
     Info { input: String },
+    Concat {
+        inputs: Vec<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -110,6 +115,53 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Concat { inputs, output } => {
+            let Some(output) = output else {
+                fail("concat", "missing_output", "mutating commands require -o / --output");
+            };
+            if inputs.len() < 2 {
+                fail("concat", "too_few_inputs", "concat requires at least two inputs");
+            }
+            for input in &inputs {
+                if !std::path::Path::new(input).exists() {
+                    fail("concat", "missing_input", format!("input not found: {input}"));
+                }
+                if same_file(input, &output) {
+                    fail(
+                        "concat",
+                        "in_place",
+                        "refusing in-place edit: output resolves to the same file as input",
+                    );
+                }
+            }
+            if cli.no_overwrite && std::path::Path::new(&output).exists() {
+                fail(
+                    "concat",
+                    "output_exists",
+                    format!("output exists and --no-overwrite was set: {output}"),
+                );
+            }
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-f".into(),
+                "concat".into(),
+                "-safe".into(),
+                "0".into(),
+                "-i".into(),
+                "concat-list.txt".into(),
+                "-c".into(),
+                "copy".into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "concat",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Info { input } => {
             if !std::path::Path::new(&input).exists() {
                 fail("info", "missing_input", format!("input not found: {input}"));
