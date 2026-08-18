@@ -166,7 +166,7 @@ fn main() {
     match cli.command {
         Command::Resize {
             input,
-            preset: _,
+            preset,
             output,
         } => {
             let Some(output) = output else {
@@ -189,7 +189,45 @@ fn main() {
                     "resize requires re-encode; --copy-only refuses this operation",
                 );
             }
-            let _ = output;
+            let Some(preset) = preset else {
+                fail("resize", "missing_preset", "resize requires --preset or --width and --height");
+            };
+            let (w, h) = match preset.as_str() {
+                "tiktok" => (1080, 1920),
+                "youtube" | "twitter" => (1920, 1080),
+                "instagram" => (1080, 1350),
+                "square" => (1080, 1080),
+                other => fail("resize", "unknown_preset", format!("unknown preset: {other}")),
+            };
+            let vf = format!(
+                "scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black"
+            );
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-vf".into(),
+                vf,
+                "-c:v".into(),
+                "libx264".into(),
+                "-pix_fmt".into(),
+                "yuv420p".into(),
+                "-crf".into(),
+                "23".into(),
+                "-preset".into(),
+                "medium".into(),
+                "-c:a".into(),
+                "copy".into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "resize",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
         }
         Command::Concat { inputs, output } => {
             let Some(output) = output else {
