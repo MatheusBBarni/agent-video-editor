@@ -45,6 +45,15 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Compress {
+        input: String,
+        #[arg(long, default_value_t = 23)]
+        crf: u8,
+        #[arg(long, default_value = "medium")]
+        preset: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Overlay {
         input: String,
         #[arg(long)]
@@ -214,6 +223,46 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Compress {
+            input,
+            crf,
+            preset,
+            output,
+        } => {
+            let Some(output) = output else {
+                fail("compress", "missing_output", "mutating commands require -o / --output");
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail("compress", "missing_input", format!("input not found: {input}"));
+            }
+            if cli.copy_only {
+                fail(
+                    "compress",
+                    "copy_only",
+                    "compress requires re-encode; --copy-only refuses this operation",
+                );
+            }
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-crf".into(),
+                crf.to_string(),
+                "-preset".into(),
+                preset,
+                "-c:a".into(),
+                "copy".into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "compress",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Overlay {
             input,
             image,
