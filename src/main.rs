@@ -252,8 +252,17 @@ fn main() {
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
         Command::Run { plan } => {
-            let text = std::fs::read_to_string(&plan)
-                .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
+            let text = if plan == "-" {
+                use std::io::Read;
+                let mut buf = String::new();
+                std::io::stdin()
+                    .read_to_string(&mut buf)
+                    .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
+                buf
+            } else {
+                std::fs::read_to_string(&plan)
+                    .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()))
+            };
             let parsed: Plan = serde_json::from_str(&text)
                 .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
             let mut planned = HashSet::new();
