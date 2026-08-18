@@ -26,6 +26,8 @@ enum Command {
         to: String,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
+        #[arg(long)]
+        accurate: bool,
     },
     Doctor,
     Info { input: String },
@@ -187,6 +189,7 @@ fn main() {
             from,
             to,
             output,
+            accurate,
         } => {
             let Some(output) = output else {
                 fail("trim", "missing_output", "mutating commands require -o / --output");
@@ -208,19 +211,45 @@ fn main() {
                     format!("output exists and --no-overwrite was set: {output}"),
                 );
             }
-            let ffmpeg = vec![
-                "ffmpeg".into(),
-                "-y".into(),
-                "-ss".into(),
-                from,
-                "-to".into(),
-                to,
-                "-i".into(),
-                input,
-                "-c".into(),
-                "copy".into(),
-                output.clone(),
-            ];
+            let ffmpeg = if accurate {
+                vec![
+                    "ffmpeg".into(),
+                    "-y".into(),
+                    "-ss".into(),
+                    from,
+                    "-to".into(),
+                    to,
+                    "-i".into(),
+                    input,
+                    "-c:v".into(),
+                    "libx264".into(),
+                    "-pix_fmt".into(),
+                    "yuv420p".into(),
+                    "-crf".into(),
+                    "23".into(),
+                    "-preset".into(),
+                    "medium".into(),
+                    "-c:a".into(),
+                    "aac".into(),
+                    "-movflags".into(),
+                    "+faststart".into(),
+                    output.clone(),
+                ]
+            } else {
+                vec![
+                    "ffmpeg".into(),
+                    "-y".into(),
+                    "-ss".into(),
+                    from,
+                    "-to".into(),
+                    to,
+                    "-i".into(),
+                    input,
+                    "-c".into(),
+                    "copy".into(),
+                    output.clone(),
+                ]
+            };
             let envelope = Envelope {
                 ok: true,
                 op: "trim",
