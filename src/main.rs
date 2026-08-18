@@ -120,6 +120,17 @@ struct RunEnvelope {
 }
 
 #[derive(Serialize)]
+struct RunFailEnvelope {
+    ok: bool,
+    op: &'static str,
+    failed_step: usize,
+    error: &'static str,
+    message: String,
+    steps: Vec<Envelope>,
+    written: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct ConvertEnvelope {
     ok: bool,
     op: &'static str,
@@ -179,6 +190,26 @@ fn run_ffmpeg(op: &'static str, argv: &[String]) {
             String::from_utf8_lossy(&output.stderr),
         );
     }
+}
+
+fn fail_run(
+    failed_step: usize,
+    error: &'static str,
+    message: impl Into<String>,
+    steps: Vec<Envelope>,
+    written: Vec<String>,
+) -> ! {
+    let envelope = RunFailEnvelope {
+        ok: false,
+        op: "run",
+        failed_step,
+        error,
+        message: message.into(),
+        steps,
+        written,
+    };
+    println!("{}", serde_json::to_string(&envelope).expect("json"));
+    std::process::exit(1);
 }
 
 fn fail(op: &'static str, error: &'static str, message: impl Into<String>) -> ! {
@@ -281,28 +312,43 @@ fn main() {
                 .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
             let mut planned = HashSet::new();
             let mut steps = Vec::new();
-            for step in parsed.steps {
+            let mut written = Vec::new();
+            for (idx, step) in parsed.steps.into_iter().enumerate() {
                 let op = step["op"].as_str().unwrap_or("");
                 if op != "trim" {
-                    fail("run", "unknown_op", format!("unknown op: {op}"));
+                    fail_run(idx, "unknown_op", format!("unknown op: {op}"), steps, written);
                 }
                 let input = step["input"].as_str().unwrap_or("").to_string();
                 let output = match step["output"].as_str() {
                     Some(o) => o.to_string(),
-                    None => fail("trim", "missing_output", "mutating commands require -o / --output"),
+                    None => fail_run(
+                        idx,
+                        "missing_output",
+                        "mutating commands require -o / --output",
+                        steps,
+                        written,
+                    ),
                 };
                 let from = step["from"].as_str().unwrap_or("").to_string();
                 let to = step["to"].as_str().unwrap_or("").to_string();
                 let input_ready = std::path::Path::new(&input).exists()
                     || (cli.dry_run && planned.contains(&input));
                 if !input_ready {
-                    fail("trim", "missing_input", format!("input not found: {input}"));
+                    fail_run(
+                        idx,
+                        "missing_input",
+                        format!("input not found: {input}"),
+                        steps,
+                        written,
+                    );
                 }
                 if same_file(&input, &output) {
-                    fail(
-                        "trim",
+                    fail_run(
+                        idx,
                         "in_place",
                         "refusing in-place edit: output resolves to the same file as input",
+                        steps,
+                        written,
                     );
                 }
                 let accurate = step["accurate"].as_bool().unwrap_or(false);
@@ -345,6 +391,23 @@ fn main() {
                         output.clone(),
                     ]
                 };
+                if !cli.dry_run {
+                    let result = std::process::Command::new(&ffmpeg[0])
+                        .args(&ffmpeg[1..])
+                        .output();
+                    match result {
+                        Ok(out) if out.status.success() => {}
+                        Ok(out) => fail_run(
+                            idx,
+                            "ffmpeg_failed",
+                            String::from_utf8_lossy(&out.stderr),
+                            steps,
+                            written,
+                        ),
+                        Err(e) => fail_run(idx, "ffmpeg_failed", e.to_string(), steps, written),
+                    }
+                    written.push(output.clone());
+                }
                 planned.insert(output.clone());
                 steps.push(Envelope {
                     ok: true,
