@@ -45,6 +45,14 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    #[command(name = "extract-audio")]
+    ExtractAudio {
+        input: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+        #[arg(long)]
+        format: Option<String>,
+    },
     Speed {
         input: String,
         #[arg(long)]
@@ -185,6 +193,59 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::ExtractAudio {
+            input,
+            output,
+            format,
+        } => {
+            let Some(output) = output else {
+                fail(
+                    "extract-audio",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail(
+                    "extract-audio",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
+            }
+            let ext = format
+                .as_deref()
+                .or_else(|| std::path::Path::new(&output).extension()?.to_str())
+                .unwrap_or("mp3");
+            let codec = match ext {
+                "mp3" => "libmp3lame",
+                "wav" => "pcm_s16le",
+                "aac" => "aac",
+                "flac" => "flac",
+                "copy" => "copy",
+                other => fail(
+                    "extract-audio",
+                    "unknown_format",
+                    format!("unknown audio format: {other}"),
+                ),
+            };
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-vn".into(),
+                "-acodec".into(),
+                codec.into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "extract-audio",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Speed {
             input,
             factor,
