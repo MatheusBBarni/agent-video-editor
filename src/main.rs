@@ -45,6 +45,18 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    #[command(name = "replace-audio")]
+    ReplaceAudio {
+        input: String,
+        #[arg(long)]
+        mute: bool,
+        #[arg(long)]
+        audio: Option<String>,
+        #[arg(long)]
+        mix: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     #[command(name = "extract-audio")]
     ExtractAudio {
         input: String,
@@ -193,6 +205,52 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::ReplaceAudio {
+            input,
+            mute,
+            audio: _,
+            mix: _,
+            output,
+        } => {
+            let Some(output) = output else {
+                fail(
+                    "replace-audio",
+                    "missing_output",
+                    "mutating commands require -o / --output",
+                );
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail(
+                    "replace-audio",
+                    "missing_input",
+                    format!("input not found: {input}"),
+                );
+            }
+            if !mute {
+                fail(
+                    "replace-audio",
+                    "missing_audio",
+                    "replace-audio requires --mute, --audio, or --mix",
+                );
+            }
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-c:v".into(),
+                "copy".into(),
+                "-an".into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "replace-audio",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::ExtractAudio {
             input,
             output,
