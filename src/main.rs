@@ -6,6 +6,8 @@ use serde::Serialize;
 struct Cli {
     #[arg(long, global = true)]
     dry_run: bool,
+    #[arg(long, global = true)]
+    no_overwrite: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -80,6 +82,13 @@ fn main() {
                     "trim",
                     "in_place",
                     "refusing in-place edit: output resolves to the same file as input",
+                );
+            }
+            if cli.no_overwrite && std::path::Path::new(&output).exists() {
+                fail(
+                    "trim",
+                    "output_exists",
+                    format!("output exists and --no-overwrite was set: {output}"),
                 );
             }
             let ffmpeg = vec![
