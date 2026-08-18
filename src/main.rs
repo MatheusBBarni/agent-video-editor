@@ -28,6 +28,7 @@ enum Command {
         output: Option<String>,
     },
     Doctor,
+    Info { input: String },
 }
 
 #[derive(Serialize)]
@@ -35,6 +36,17 @@ struct Envelope {
     ok: bool,
     op: &'static str,
     output: String,
+    ffmpeg: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct InfoEnvelope {
+    ok: bool,
+    op: &'static str,
+    duration_s: f64,
+    width: u32,
+    height: u32,
+    size_bytes: u64,
     ffmpeg: Vec<String>,
 }
 
@@ -96,6 +108,61 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Info { input } => {
+            if !std::path::Path::new(&input).exists() {
+                fail("info", "missing_input", format!("input not found: {input}"));
+            }
+            let argv = vec![
+                ffprobe_bin.to_string(),
+                "-v".into(),
+                "quiet".into(),
+                "-print_format".into(),
+                "json".into(),
+                "-show_format".into(),
+                "-show_streams".into(),
+                input.clone(),
+            ];
+            let output = std::process::Command::new(ffprobe_bin)
+                .args(&argv[1..])
+                .output()
+                .unwrap_or_else(|e| fail("info", "ffprobe_failed", e.to_string()));
+            if !output.status.success() {
+                fail(
+                    "info",
+                    "ffprobe_failed",
+                    String::from_utf8_lossy(&output.stderr),
+                );
+            }
+            let probe: serde_json::Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|e| fail("info", "ffprobe_failed", e.to_string()));
+            let duration_s = probe["format"]["duration"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| probe["format"]["duration"].as_f64())
+                .unwrap_or(0.0);
+            let size_bytes = probe["format"]["size"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| probe["format"]["size"].as_u64())
+                .unwrap_or(0);
+            let video = probe["streams"]
+                .as_array()
+                .and_then(|streams| {
+                    streams.iter().find(|s| s["codec_type"] == "video")
+                });
+            let width = video.and_then(|s| s["width"].as_u64()).unwrap_or(0) as u32;
+            let height = video.and_then(|s| s["height"].as_u64()).unwrap_or(0) as u32;
+            let envelope = InfoEnvelope {
+                ok: true,
+                op: "info",
+                duration_s,
+                width,
+                height,
+                size_bytes,
+                ffmpeg: argv,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Doctor => {
             let ffmpeg_version = tool_version(ffmpeg_bin);
             let ffprobe_version = tool_version(ffprobe_bin);
