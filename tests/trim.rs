@@ -90,3 +90,31 @@ fn trim_refuses_in_place_and_leaves_input_unchanged() {
     assert_eq!(v["ok"], false);
     assert_eq!(fs::read(&input).unwrap(), b"original-bytes");
 }
+
+#[test]
+fn trim_missing_input_fails_and_writes_no_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("out.mp4");
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "30",
+            "--to",
+            "105",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert!(!output.exists(), "must not write output when input is missing");
+}
