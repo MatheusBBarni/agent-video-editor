@@ -131,3 +131,39 @@ fn run_stops_on_failure_and_keeps_earlier_output() {
     assert!(dir.path().join("a.mp4").exists(), "step 1 output must be kept");
     assert!(!dir.path().join("c.mp4").exists(), "step 3 must not run");
 }
+
+#[test]
+fn run_unknown_op_fails_before_any_step() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("clip.mp4"));
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {"op": "trim", "input": "clip.mp4", "from": "0", "to": "2", "output": "a.mp4"},
+            {"op": "nope", "input": "clip.mp4", "output": "b.mp4"}
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert!(
+        !dir.path().join("a.mp4").exists(),
+        "unknown op must fail before running any step"
+    );
+}
