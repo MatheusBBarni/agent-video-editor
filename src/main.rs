@@ -45,6 +45,13 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Speed {
+        input: String,
+        #[arg(long)]
+        factor: f64,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -145,6 +152,20 @@ fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {
     })
 }
 
+fn atempo_filter(mut factor: f64) -> String {
+    let mut parts = Vec::new();
+    while factor > 2.0 {
+        parts.push("atempo=2.0".to_string());
+        factor /= 2.0;
+    }
+    while factor < 0.5 {
+        parts.push("atempo=0.5".to_string());
+        factor /= 0.5;
+    }
+    parts.push(format!("atempo={factor}"));
+    parts.join(",")
+}
+
 fn tool_version(bin: &str) -> Option<String> {
     let output = std::process::Command::new(bin).arg("-version").output().ok()?;
     if !output.status.success() {
@@ -164,6 +185,55 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Speed {
+            input,
+            factor,
+            output,
+        } => {
+            let Some(output) = output else {
+                fail("speed", "missing_output", "mutating commands require -o / --output");
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail("speed", "missing_input", format!("input not found: {input}"));
+            }
+            if same_file(&input, &output) {
+                fail(
+                    "speed",
+                    "in_place",
+                    "refusing in-place edit: output resolves to the same file as input",
+                );
+            }
+            if factor <= 0.0 {
+                fail("speed", "invalid_factor", "speed factor must be greater than 0");
+            }
+            if cli.copy_only {
+                fail(
+                    "speed",
+                    "copy_only",
+                    "speed requires re-encode; --copy-only refuses this operation",
+                );
+            }
+            let setpts = format!("setpts={}*PTS", 1.0 / factor);
+            let atempo = atempo_filter(factor);
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-filter:v".into(),
+                setpts,
+                "-filter:a".into(),
+                atempo,
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "speed",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Resize {
             input,
             preset,
