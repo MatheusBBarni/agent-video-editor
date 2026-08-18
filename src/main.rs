@@ -167,6 +167,20 @@ fn same_file(a: &str, b: &str) -> bool {
     }
 }
 
+fn run_ffmpeg(op: &'static str, argv: &[String]) {
+    let output = std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .output()
+        .unwrap_or_else(|e| fail(op, "ffmpeg_failed", e.to_string()));
+    if !output.status.success() {
+        fail(
+            op,
+            "ffmpeg_failed",
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+}
+
 fn fail(op: &'static str, error: &'static str, message: impl Into<String>) -> ! {
     let envelope = FailEnvelope {
         ok: false,
@@ -922,6 +936,9 @@ fn main() {
                     output.clone(),
                 ]
             };
+            if !cli.dry_run {
+                run_ffmpeg("trim", &ffmpeg);
+            }
             let envelope = Envelope {
                 ok: true,
                 op: "trim",
