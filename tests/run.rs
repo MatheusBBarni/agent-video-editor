@@ -65,6 +65,36 @@ fn run_reads_plan_from_stdin() {
     assert_eq!(v["steps"][0]["op"], "trim");
 }
 
+#[test]
+fn run_dry_run_accepts_concat_after_trims() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {"op": "trim", "input": "in.mp4", "from": "0", "to": "10", "output": "a.mp4"},
+            {"op": "trim", "input": "in.mp4", "from": "20", "to": "30", "output": "b.mp4"},
+            {"op": "concat", "inputs": ["a.mp4", "b.mp4"], "output": "out.mp4"}
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["steps"].as_array().unwrap().len(), 3);
+    assert_eq!(v["steps"][2]["op"], "concat");
+}
+
 fn ffmpeg_available() -> bool {
     std::process::Command::new("ffmpeg")
         .arg("-version")

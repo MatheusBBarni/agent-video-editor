@@ -1,3 +1,10 @@
+pub fn with_bin(mut argv: Vec<String>, bin: &str) -> Vec<String> {
+    if let Some(first) = argv.first_mut() {
+        *first = bin.to_string();
+    }
+    argv
+}
+
 pub fn trim_argv(from: &str, to: &str, input: &str, output: &str, accurate: bool) -> Vec<String> {
     if accurate {
         vec![
@@ -220,6 +227,45 @@ pub fn gif_passes(input: &str, output: &str) -> (Vec<String>, Vec<String>) {
         output.into(),
     ];
     (pass1, pass2)
+}
+
+pub fn replace_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
+    vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-i".into(),
+        input.into(),
+        "-i".into(),
+        audio.into(),
+        "-c:v".into(),
+        "copy".into(),
+        "-map".into(),
+        "0:v:0".into(),
+        "-map".into(),
+        "1:a:0".into(),
+        "-shortest".into(),
+        output.into(),
+    ]
+}
+
+pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
+    vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-i".into(),
+        input.into(),
+        "-i".into(),
+        audio.into(),
+        "-filter_complex".into(),
+        "[0:a][1:a]amix=inputs=2:duration=first[a]".into(),
+        "-map".into(),
+        "0:v".into(),
+        "-map".into(),
+        "[a]".into(),
+        "-c:v".into(),
+        "copy".into(),
+        output.into(),
+    ]
 }
 
 pub fn convert_argv(input: &str, output: &str) -> Vec<String> {

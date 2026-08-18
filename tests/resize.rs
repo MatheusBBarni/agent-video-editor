@@ -73,3 +73,21 @@ fn resize_tiktok_dry_run_scale_and_pads() {
     );
     assert!(vf.contains("pad="), "should pad: {vf}");
 }
+
+#[test]
+fn resize_without_dry_run_does_not_fake_success() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["resize", "in.mp4", "--preset", "tiktok", "-o", "out.mp4"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert!(!dir.path().join("out.mp4").exists());
+}
