@@ -310,6 +310,15 @@ fn main() {
             };
             let parsed: Plan = serde_json::from_str(&text)
                 .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
+            for step in &parsed.steps {
+                let op = step["op"].as_str().unwrap_or("");
+                if op != "trim" {
+                    fail("run", "unknown_op", format!("unknown op: {op}"));
+                }
+                if step["output"].as_str().is_none() {
+                    fail("run", "missing_output", "mutating commands require output");
+                }
+            }
             let mut planned = HashSet::new();
             let mut steps = Vec::new();
             let mut written = Vec::new();
