@@ -45,6 +45,11 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Convert {
+        input: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Compress {
         input: String,
         #[arg(long, default_value_t = 23)]
@@ -98,6 +103,15 @@ struct Envelope {
     op: &'static str,
     output: String,
     ffmpeg: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ConvertEnvelope {
+    ok: bool,
+    op: &'static str,
+    output: String,
+    ffmpeg: Vec<String>,
+    passes: Vec<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -223,6 +237,64 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Convert { input, output } => {
+            let Some(output) = output else {
+                fail("convert", "missing_output", "mutating commands require -o / --output");
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail("convert", "missing_input", format!("input not found: {input}"));
+            }
+            let gif = std::path::Path::new(&output)
+                .extension()
+                .and_then(|e| e.to_str())
+                == Some("gif");
+            if gif && cli.copy_only {
+                fail(
+                    "convert",
+                    "copy_only",
+                    "gif convert requires re-encode; --copy-only refuses this operation",
+                );
+            }
+            if gif {
+                let pass1 = vec![
+                    "ffmpeg".into(),
+                    "-y".into(),
+                    "-i".into(),
+                    input.clone(),
+                    "-vf".into(),
+                    "fps=15,scale=480:-1:flags=lanczos,palettegen".into(),
+                    "palette.png".into(),
+                ];
+                let pass2 = vec![
+                    "ffmpeg".into(),
+                    "-y".into(),
+                    "-i".into(),
+                    input,
+                    "-i".into(),
+                    "palette.png".into(),
+                    "-filter_complex".into(),
+                    "fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse".into(),
+                    output.clone(),
+                ];
+                let envelope = ConvertEnvelope {
+                    ok: true,
+                    op: "convert",
+                    output,
+                    ffmpeg: pass2.clone(),
+                    passes: vec![pass1, pass2],
+                };
+                println!("{}", serde_json::to_string(&envelope).expect("json"));
+            } else {
+                let ffmpeg = vec!["ffmpeg".into(), "-y".into(), "-i".into(), input, output.clone()];
+                let envelope = Envelope {
+                    ok: true,
+                    op: "convert",
+                    output,
+                    ffmpeg,
+                };
+                println!("{}", serde_json::to_string(&envelope).expect("json"));
+            }
+        }
         Command::Compress {
             input,
             crf,
