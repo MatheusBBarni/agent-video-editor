@@ -8,6 +8,10 @@ struct Cli {
     dry_run: bool,
     #[arg(long, global = true)]
     no_overwrite: bool,
+    #[arg(long, global = true)]
+    ffmpeg: Option<String>,
+    #[arg(long, global = true)]
+    ffprobe: Option<String>,
     #[command(subcommand)]
     command: Command,
 }
@@ -23,6 +27,7 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Doctor,
 }
 
 #[derive(Serialize)]
@@ -31,6 +36,16 @@ struct Envelope {
     op: &'static str,
     output: String,
     ffmpeg: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct DoctorEnvelope {
+    ok: bool,
+    op: &'static str,
+    ffmpeg_found: bool,
+    ffprobe_found: bool,
+    ffmpeg_version: String,
+    ffprobe_version: String,
 }
 
 #[derive(Serialize)]
@@ -62,9 +77,44 @@ fn fail(op: &'static str, error: &'static str, message: impl Into<String>) -> ! 
     std::process::exit(1);
 }
 
+fn tool_version(bin: &str) -> Option<String> {
+    let output = std::process::Command::new(bin).arg("-version").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let first = text.lines().next().unwrap_or("");
+    first
+        .split_whitespace()
+        .nth(2)
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+}
+
 fn main() {
     let cli = Cli::parse();
+    let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
+    let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Doctor => {
+            let ffmpeg_version = tool_version(ffmpeg_bin);
+            let ffprobe_version = tool_version(ffprobe_bin);
+            let ffmpeg_found = ffmpeg_version.is_some();
+            let ffprobe_found = ffprobe_version.is_some();
+            let ok = ffmpeg_found && ffprobe_found;
+            let envelope = DoctorEnvelope {
+                ok,
+                op: "doctor",
+                ffmpeg_found,
+                ffprobe_found,
+                ffmpeg_version: ffmpeg_version.unwrap_or_default(),
+                ffprobe_version: ffprobe_version.unwrap_or_default(),
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+            if !ok {
+                std::process::exit(1);
+            }
+        }
         Command::Trim {
             input,
             from,
