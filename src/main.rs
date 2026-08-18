@@ -45,6 +45,15 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Overlay {
+        input: String,
+        #[arg(long)]
+        image: String,
+        #[arg(long)]
+        position: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     #[command(name = "replace-audio")]
     ReplaceAudio {
         input: String,
@@ -205,6 +214,61 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Overlay {
+            input,
+            image,
+            position,
+            output,
+        } => {
+            let Some(output) = output else {
+                fail("overlay", "missing_output", "mutating commands require -o / --output");
+            };
+            if !std::path::Path::new(&input).exists() {
+                fail("overlay", "missing_input", format!("input not found: {input}"));
+            }
+            if !std::path::Path::new(&image).exists() {
+                fail("overlay", "missing_image", format!("image not found: {image}"));
+            }
+            if cli.copy_only {
+                fail(
+                    "overlay",
+                    "copy_only",
+                    "overlay requires re-encode; --copy-only refuses this operation",
+                );
+            }
+            let expr = match position.as_deref().unwrap_or("top-right") {
+                "top-left" => "overlay=10:10",
+                "top-right" => "overlay=W-w-10:10",
+                "bottom-left" => "overlay=10:H-h-10",
+                "bottom-right" => "overlay=W-w-10:H-h-10",
+                "center" => "overlay=(W-w)/2:(H-h)/2",
+                other => fail(
+                    "overlay",
+                    "unknown_position",
+                    format!("unknown position: {other}"),
+                ),
+            };
+            let ffmpeg = vec![
+                "ffmpeg".into(),
+                "-y".into(),
+                "-i".into(),
+                input,
+                "-i".into(),
+                image,
+                "-filter_complex".into(),
+                expr.into(),
+                "-c:a".into(),
+                "copy".into(),
+                output.clone(),
+            ];
+            let envelope = Envelope {
+                ok: true,
+                op: "overlay",
+                output,
+                ffmpeg,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::ReplaceAudio {
             input,
             mute,
