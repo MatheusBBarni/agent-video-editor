@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -32,6 +33,7 @@ enum Command {
         accurate: bool,
     },
     Doctor,
+    Run { plan: String },
     Info { input: String },
     Concat {
         inputs: Vec<String>,
@@ -103,6 +105,18 @@ struct Envelope {
     op: &'static str,
     output: String,
     ffmpeg: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct Plan {
+    steps: Vec<serde_json::Value>,
+}
+
+#[derive(Serialize)]
+struct RunEnvelope {
+    ok: bool,
+    op: &'static str,
+    steps: Vec<Envelope>,
 }
 
 #[derive(Serialize)]
@@ -237,6 +251,92 @@ fn main() {
     let ffmpeg_bin = cli.ffmpeg.as_deref().unwrap_or("ffmpeg");
     let ffprobe_bin = cli.ffprobe.as_deref().unwrap_or("ffprobe");
     match cli.command {
+        Command::Run { plan } => {
+            let text = std::fs::read_to_string(&plan)
+                .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
+            let parsed: Plan = serde_json::from_str(&text)
+                .unwrap_or_else(|e| fail("run", "bad_plan", e.to_string()));
+            let mut planned = HashSet::new();
+            let mut steps = Vec::new();
+            for step in parsed.steps {
+                let op = step["op"].as_str().unwrap_or("");
+                if op != "trim" {
+                    fail("run", "unknown_op", format!("unknown op: {op}"));
+                }
+                let input = step["input"].as_str().unwrap_or("").to_string();
+                let output = match step["output"].as_str() {
+                    Some(o) => o.to_string(),
+                    None => fail("trim", "missing_output", "mutating commands require -o / --output"),
+                };
+                let from = step["from"].as_str().unwrap_or("").to_string();
+                let to = step["to"].as_str().unwrap_or("").to_string();
+                let input_ready = std::path::Path::new(&input).exists()
+                    || (cli.dry_run && planned.contains(&input));
+                if !input_ready {
+                    fail("trim", "missing_input", format!("input not found: {input}"));
+                }
+                if same_file(&input, &output) {
+                    fail(
+                        "trim",
+                        "in_place",
+                        "refusing in-place edit: output resolves to the same file as input",
+                    );
+                }
+                let accurate = step["accurate"].as_bool().unwrap_or(false);
+                let ffmpeg = if accurate {
+                    vec![
+                        "ffmpeg".into(),
+                        "-y".into(),
+                        "-ss".into(),
+                        from,
+                        "-to".into(),
+                        to,
+                        "-i".into(),
+                        input,
+                        "-c:v".into(),
+                        "libx264".into(),
+                        "-pix_fmt".into(),
+                        "yuv420p".into(),
+                        "-crf".into(),
+                        "23".into(),
+                        "-preset".into(),
+                        "medium".into(),
+                        "-c:a".into(),
+                        "aac".into(),
+                        "-movflags".into(),
+                        "+faststart".into(),
+                        output.clone(),
+                    ]
+                } else {
+                    vec![
+                        "ffmpeg".into(),
+                        "-y".into(),
+                        "-ss".into(),
+                        from,
+                        "-to".into(),
+                        to,
+                        "-i".into(),
+                        input,
+                        "-c".into(),
+                        "copy".into(),
+                        output.clone(),
+                    ]
+                };
+                planned.insert(output.clone());
+                steps.push(Envelope {
+                    ok: true,
+                    op: "trim",
+                    output,
+                    ffmpeg,
+                });
+            }
+            let envelope = RunEnvelope {
+                ok: true,
+                op: "run",
+                steps,
+            };
+            println!("{}", serde_json::to_string(&envelope).expect("json"));
+        }
         Command::Convert { input, output } => {
             let Some(output) = output else {
                 fail("convert", "missing_output", "mutating commands require -o / --output");
