@@ -1,34 +1,8 @@
-use assert_cmd::Command;
-use serde_json::Value;
+mod common;
 
-fn write_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=1",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
+use assert_cmd::Command;
+use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
+use serde_json::Value;
 
 #[test]
 fn speed_factor_4_dry_run_chains_atempo() {
@@ -51,38 +25,6 @@ fn speed_factor_4_dry_run_chains_atempo() {
     assert!(
         atempo.contains("atempo=2.0,atempo=2.0") || atempo.matches("atempo=2").count() >= 2,
         "expected chained atempo for 4x: {atempo}"
-    );
-}
-
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_video_only_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
     );
 }
 

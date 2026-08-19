@@ -185,8 +185,6 @@ fn trim_accurate_duration_dry_run_swaps_to_for_t() {
             "23",
             "-preset",
             "medium",
-            "-c:a",
-            "aac",
             "-movflags",
             "+faststart",
             "out.mp4"
@@ -349,8 +347,6 @@ fn trim_accurate_dry_run_reencodes_instead_of_copy() {
             "23",
             "-preset",
             "medium",
-            "-c:a",
-            "aac",
             "-movflags",
             "+faststart",
             "out.mp4"

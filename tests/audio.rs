@@ -1,35 +1,9 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
-
-fn write_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=1",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
 
 #[test]
 fn extract_audio_mp3_dry_run_disables_video() {
@@ -134,38 +108,6 @@ fn replace_audio_file_dry_run_maps_new_track() {
         .collect();
     assert!(argv.contains(&"voice.mp3"));
     assert!(argv.contains(&"1:a:0"), "should map new audio: {argv:?}");
-}
-
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_video_only_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
 }
 
 #[test]

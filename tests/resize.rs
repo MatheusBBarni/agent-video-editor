@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -74,38 +77,6 @@ fn resize_tiktok_dry_run_scale_and_pads() {
     assert!(vf.contains("pad="), "should pad: {vf}");
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_video_only_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
 fn resize_dry_run_argv(dir: &tempfile::TempDir, input: &str) -> Vec<String> {
     let assert = Command::cargo_bin("ave")
         .unwrap()
@@ -166,35 +137,6 @@ fn resize_video_only_writes_output() {
         .success();
 
     assert!(dir.path().join("out.mp4").exists());
-}
-
-fn write_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=1",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
 }
 
 #[test]

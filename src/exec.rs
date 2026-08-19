@@ -183,7 +183,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                         input,
                         output,
                         *accurate,
-                        audio.unwrap_or(true),
+                        audio.unwrap_or(false),
                     ),
                     bin,
                 ),
