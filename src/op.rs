@@ -109,7 +109,7 @@ pub enum Op {
         preset: Option<String>,
         width: Option<u32>,
         height: Option<u32>,
-        fit: Option<String>,
+        fit: recipes::Fit,
     },
     Speed {
         input: String,
@@ -156,7 +156,7 @@ pub enum Op {
     },
     Rotate {
         input: String,
-        deg: u32,
+        deg: recipes::RotateDeg,
         output: String,
     },
     Volume {
@@ -166,16 +166,15 @@ pub enum Op {
     },
     Fade {
         input: String,
-        fade_in: Option<String>,
-        fade_out: Option<String>,
+        fade_in: Option<f64>,
+        fade_out: Option<f64>,
         output: String,
     },
     Text {
         input: String,
         text: String,
-        position: Option<String>,
-        from: Option<String>,
-        to: Option<String>,
+        position: recipes::TextPos,
+        span: Option<(String, String)>,
         output: String,
     },
     Info {
@@ -373,7 +372,7 @@ impl Op {
                     preset: step["preset"].as_str().map(str::to_string),
                     width: step["width"].as_u64().map(|n| n as u32),
                     height: step["height"].as_u64().map(|n| n as u32),
-                    fit: step["fit"].as_str().map(str::to_string),
+                    fit: parse_fit(step["fit"].as_str(), "run")?,
                 })
             }
             "speed" => {
@@ -428,7 +427,7 @@ impl Op {
                     .ok_or_else(|| Error::new("run", "missing_field", "rotate requires deg"))?;
                 Ok(Self::Rotate {
                     input: req("input")?,
-                    deg: require_rotate_deg("run", deg as u32)?,
+                    deg: parse_rotate_deg(deg as u32, "run")?,
                     output: req("output")?,
                 })
             }
@@ -457,9 +456,12 @@ impl Op {
             "text" => Ok(Self::Text {
                 input: req("input")?,
                 text: req("text")?,
-                position: step["position"].as_str().map(str::to_string),
-                from: json_string_or_number(&step["from"]),
-                to: json_string_or_number(&step["to"]),
+                position: parse_text_pos(step["position"].as_str(), "run")?,
+                span: text_span(
+                    json_string_or_number(&step["from"]),
+                    json_string_or_number(&step["to"]),
+                    "run",
+                )?,
                 output: req("output")?,
             }),
             "captions" => Ok(Self::Captions {
@@ -634,9 +636,64 @@ pub fn replace_audio_choice(
     }
 }
 
-pub fn require_rotate_deg(op: &'static str, deg: u32) -> Result<u32, Error> {
+pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Error> {
+    match raw.unwrap_or("pad") {
+        "pad" => Ok(recipes::Fit::Pad),
+        "crop" => Ok(recipes::Fit::Crop),
+        "stretch" => Ok(recipes::Fit::Stretch),
+        other => Err(Error::new(
+            op,
+            "unknown_fit",
+            format!("unknown fit: {other}"),
+        )),
+    }
+}
+
+pub fn parse_text_pos(raw: Option<&str>, op: &'static str) -> Result<recipes::TextPos, Error> {
+    match raw.unwrap_or("lower-third") {
+        "lower-third" => Ok(recipes::TextPos::LowerThird),
+        "center" => Ok(recipes::TextPos::Center),
+        "top" => Ok(recipes::TextPos::Top),
+        other => Err(Error::new(
+            op,
+            "unknown_position",
+            format!("unknown position: {other}"),
+        )),
+    }
+}
+
+pub fn text_span(
+    from: Option<String>,
+    to: Option<String>,
+    op: &'static str,
+) -> Result<Option<(String, String)>, Error> {
+    match (from.filter(|s| !s.is_empty()), to.filter(|s| !s.is_empty())) {
+        (None, None) => Ok(None),
+        (Some(from), Some(to)) => {
+            let from_s = parse_timestamp(&from).ok_or_else(|| {
+                Error::new(op, "bad_timestamp", format!("invalid timestamp: {from}"))
+            })?;
+            let to_s = parse_timestamp(&to).ok_or_else(|| {
+                Error::new(op, "bad_timestamp", format!("invalid timestamp: {to}"))
+            })?;
+            if from_s >= to_s {
+                return Err(Error::new(op, "bad_range", "from must be less than to"));
+            }
+            Ok(Some((from, to)))
+        }
+        _ => Err(Error::new(
+            op,
+            "missing_field",
+            "text requires both from and to, or neither",
+        )),
+    }
+}
+
+pub fn parse_rotate_deg(deg: u32, op: &'static str) -> Result<recipes::RotateDeg, Error> {
     match deg {
-        90 | 180 | 270 => Ok(deg),
+        90 => Ok(recipes::RotateDeg::D90),
+        180 => Ok(recipes::RotateDeg::D180),
+        270 => Ok(recipes::RotateDeg::D270),
         _ => Err(Error::new(
             op,
             "bad_range",
@@ -659,11 +716,24 @@ pub fn parse_db(op: &'static str, raw: &str) -> Result<f64, Error> {
     Ok(db)
 }
 
+fn parse_fade_secs(raw: &str, op: &'static str) -> Result<f64, Error> {
+    let secs = parse_timestamp(raw)
+        .ok_or_else(|| Error::new(op, "bad_timestamp", format!("invalid timestamp: {raw}")))?;
+    if secs <= 0.0 {
+        return Err(Error::new(
+            op,
+            "bad_range",
+            "fade duration must be greater than 0",
+        ));
+    }
+    Ok(secs)
+}
+
 pub fn fade_pair(
     fade_in: Option<String>,
     fade_out: Option<String>,
     op: &'static str,
-) -> Result<(Option<String>, Option<String>), Error> {
+) -> Result<(Option<f64>, Option<f64>), Error> {
     let fade_in = fade_in.filter(|s| !s.is_empty());
     let fade_out = fade_out.filter(|s| !s.is_empty());
     if fade_in.is_none() && fade_out.is_none() {
@@ -673,19 +743,16 @@ pub fn fade_pair(
             "fade requires --in or --out",
         ));
     }
-    for value in fade_in.iter().chain(fade_out.iter()) {
-        let secs = parse_timestamp(value).ok_or_else(|| {
-            Error::new(op, "bad_timestamp", format!("invalid timestamp: {value}"))
-        })?;
-        if secs <= 0.0 {
-            return Err(Error::new(
-                op,
-                "bad_range",
-                "fade duration must be greater than 0",
-            ));
-        }
-    }
-    Ok((fade_in, fade_out))
+    Ok((
+        fade_in
+            .as_deref()
+            .map(|v| parse_fade_secs(v, op))
+            .transpose()?,
+        fade_out
+            .as_deref()
+            .map(|v| parse_fade_secs(v, op))
+            .transpose()?,
+    ))
 }
 
 pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, Error> {

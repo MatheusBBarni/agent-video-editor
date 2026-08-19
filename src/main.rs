@@ -10,8 +10,8 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output,
-    require_rotate_deg, require_subtitle_file,
+    Op, TrimEnd, fade_pair, parse_db, parse_fit, parse_keep_ranges, parse_rotate_deg,
+    parse_text_pos, replace_audio_choice, require_output, require_subtitle_file, text_span,
 };
 
 #[derive(Parser)]
@@ -418,7 +418,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             preset,
             width,
             height,
-            fit,
+            fit: parse_fit(fit.as_deref(), "resize")?,
         }),
         Command::Convert { input, output } => Ok(Op::Convert {
             input,
@@ -482,7 +482,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         }),
         Command::Rotate { input, deg, output } => Ok(Op::Rotate {
             input,
-            deg: require_rotate_deg("rotate", deg)?,
+            deg: parse_rotate_deg(deg, "rotate")?,
             output: require_output("rotate", output)?,
         }),
         Command::Volume { input, db, output } => Ok(Op::Volume {
@@ -514,9 +514,8 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         } => Ok(Op::Text {
             input,
             text,
-            position,
-            from,
-            to,
+            position: parse_text_pos(position.as_deref(), "text")?,
+            span: text_span(from, to, "text")?,
             output: require_output("text", output)?,
         }),
         Command::Captions { input, srt, output } => Ok(Op::Captions {

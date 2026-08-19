@@ -1,3 +1,5 @@
+use assert_cmd::Command as Ave;
+use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
 
@@ -40,6 +42,18 @@ pub fn write_fixture(path: &Path) {
         "yuv420p",
         path.to_str().unwrap(),
     ]);
+}
+
+pub fn ave_json(dir: &tempfile::TempDir, args: &[&str]) -> (bool, Value) {
+    let output = Ave::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(args)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    (output.status.success(), v)
 }
 
 pub fn write_video_only_fixture(path: &Path) {

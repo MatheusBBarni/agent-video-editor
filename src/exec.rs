@@ -33,6 +33,13 @@ fn reencode_job(argv: Vec<String>) -> Job {
     }
 }
 
+fn vf_job(input: &str, output: &str, vf: &str, has_audio: bool, bin: &str) -> Job {
+    reencode_job(recipes::with_bin(
+        recipes::vf_reencode_argv(input, output, vf, has_audio),
+        bin,
+    ))
+}
+
 pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
     execute_assuming(op, ctx, &std::collections::HashSet::new())
 }
@@ -208,14 +215,13 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             input, output, fit, ..
         } => {
             let (w, h) = op.resize_size()?;
-            let fit = fit.as_deref().unwrap_or("pad");
-            let vf = recipes::resize_filter(w, h, fit).ok_or_else(|| {
-                Error::new("resize", "unknown_fit", format!("unknown fit: {fit}"))
-            })?;
-            Ok(reencode_job(recipes::with_bin(
-                recipes::resize_argv(input, output, &vf, audio.unwrap_or(false)),
+            Ok(vf_job(
+                input,
+                output,
+                &recipes::resize_filter(w, h, *fit),
+                audio.unwrap_or(false),
                 bin,
-            )))
+            ))
         }
         Op::Speed {
             input,
@@ -357,17 +363,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             }
         }
         Op::Rotate { input, deg, output } => {
-            let vf = recipes::rotate_vf(*deg).ok_or_else(|| {
-                Error::new(
-                    "rotate",
-                    "bad_range",
-                    format!("rotate accepts 90, 180, or 270: {deg}"),
-                )
-            })?;
-            Ok(reencode_job(recipes::with_bin(
-                recipes::rotate_argv(input, output, vf, audio.unwrap_or(false)),
-                bin,
-            )))
+            Ok(vf_job(input, output, deg.vf(), audio.unwrap_or(false), bin))
         }
         Op::Volume { input, db, output } => Ok(reencode_job(recipes::with_bin(
             recipes::volume_argv(input, output, *db),
@@ -379,44 +375,49 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             fade_out,
             output,
         } => {
-            let duration = probed_duration(&ctx.ffprobe, input, "fade").ok();
-            let vf = recipes::fade_vf(
-                fade_in.as_deref().and_then(parse_timestamp),
-                fade_out.as_deref().and_then(parse_timestamp),
-                duration,
-            );
-            Ok(reencode_job(recipes::with_bin(
-                recipes::fade_argv(input, output, &vf, audio.unwrap_or(false)),
+            let fade_out = match fade_out {
+                Some(d) => {
+                    let start = if ctx.dry_run {
+                        probed_duration(&ctx.ffprobe, input, "fade")
+                            .ok()
+                            .map(|total| (total - d).max(0.0))
+                            .unwrap_or(0.0)
+                    } else {
+                        let total = probed_duration(&ctx.ffprobe, input, "fade")?;
+                        (total - d).max(0.0)
+                    };
+                    Some((*d, start))
+                }
+                None => None,
+            };
+            Ok(vf_job(
+                input,
+                output,
+                &recipes::fade_vf(*fade_in, fade_out),
+                audio.unwrap_or(false),
                 bin,
-            )))
+            ))
         }
         Op::Text {
             input,
             text,
             position,
-            from,
-            to,
+            span,
             output,
-        } => {
-            let position = position.as_deref().unwrap_or("lower-third");
-            let vf = recipes::text_vf(text, position, from.as_deref(), to.as_deref()).ok_or_else(
-                || {
-                    Error::new(
-                        "text",
-                        "unknown_position",
-                        format!("unknown position: {position}"),
-                    )
-                },
-            )?;
-            Ok(reencode_job(recipes::with_bin(
-                recipes::text_argv(input, output, &vf, audio.unwrap_or(false)),
-                bin,
-            )))
-        }
-        Op::Captions { input, srt, output } => Ok(reencode_job(recipes::with_bin(
-            recipes::captions_argv(input, srt, output, audio.unwrap_or(false)),
+        } => Ok(vf_job(
+            input,
+            output,
+            &recipes::text_vf(text, *position, span.as_ref()),
+            audio.unwrap_or(false),
             bin,
-        ))),
+        )),
+        Op::Captions { input, srt, output } => Ok(vf_job(
+            input,
+            output,
+            &recipes::captions_vf(srt),
+            audio.unwrap_or(false),
+            bin,
+        )),
         Op::Frame { input, at, output } => Ok(reencode_job(recipes::with_bin(
             recipes::frame_argv(input, at, output),
             bin,

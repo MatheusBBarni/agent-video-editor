@@ -102,7 +102,48 @@ fn concat_demuxer_prefix(list_path: &str) -> Vec<String> {
     ]
 }
 
-pub fn resize_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fit {
+    Pad,
+    Crop,
+    Stretch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextPos {
+    LowerThird,
+    Center,
+    Top,
+}
+
+impl TextPos {
+    pub fn xy(self) -> (&'static str, &'static str) {
+        match self {
+            Self::LowerThird => ("(w-text_w)/2", "h-th-80"),
+            Self::Center => ("(w-text_w)/2", "(h-text_h)/2"),
+            Self::Top => ("(w-text_w)/2", "80"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RotateDeg {
+    D90,
+    D180,
+    D270,
+}
+
+impl RotateDeg {
+    pub fn vf(self) -> &'static str {
+        match self {
+            Self::D90 => "transpose=clock",
+            Self::D180 => "transpose=clock,transpose=clock",
+            Self::D270 => "transpose=cclock",
+        }
+    }
+}
+
+pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -140,13 +181,12 @@ pub fn scale_stretch(w: u32, h: u32) -> String {
     format!("scale={w}:{h}")
 }
 
-pub fn resize_filter(w: u32, h: u32, fit: &str) -> Option<String> {
-    Some(match fit {
-        "pad" => scale_pad(w, h),
-        "crop" => scale_crop(w, h),
-        "stretch" => scale_stretch(w, h),
-        _ => return None,
-    })
+pub fn resize_filter(w: u32, h: u32, fit: Fit) -> String {
+    match fit {
+        Fit::Pad => scale_pad(w, h),
+        Fit::Crop => scale_crop(w, h),
+        Fit::Stretch => scale_stretch(w, h),
+    }
 }
 
 pub fn preset_size(preset: &str) -> Option<(u32, u32)> {
@@ -344,19 +384,6 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
-pub fn rotate_vf(deg: u32) -> Option<&'static str> {
-    Some(match deg {
-        90 => "transpose=clock",
-        180 => "transpose=clock,transpose=clock",
-        270 => "transpose=cclock",
-        _ => return None,
-    })
-}
-
-pub fn rotate_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
-    resize_argv(input, output, vf, has_audio)
-}
-
 pub fn volume_argv(input: &str, output: &str, db: f64) -> Vec<String> {
     vec![
         "ffmpeg".into(),
@@ -371,34 +398,15 @@ pub fn volume_argv(input: &str, output: &str, db: f64) -> Vec<String> {
     ]
 }
 
-pub fn fade_vf(fade_in: Option<f64>, fade_out: Option<f64>, duration_s: Option<f64>) -> String {
+pub fn fade_vf(fade_in: Option<f64>, fade_out: Option<(f64, f64)>) -> String {
     let mut parts = Vec::new();
     if let Some(d) = fade_in {
         parts.push(format!("fade=t=in:st=0:d={d}"));
     }
-    if let Some(d) = fade_out {
-        match duration_s {
-            Some(total) => {
-                let start = (total - d).max(0.0);
-                parts.push(format!("fade=t=out:st={start}:d={d}"));
-            }
-            None => parts.push(format!("fade=t=out:d={d}")),
-        }
+    if let Some((d, start)) = fade_out {
+        parts.push(format!("fade=t=out:st={start}:d={d}"));
     }
     parts.join(",")
-}
-
-pub fn fade_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
-    resize_argv(input, output, vf, has_audio)
-}
-
-pub fn text_position_xy(position: &str) -> Option<(&'static str, &'static str)> {
-    Some(match position {
-        "lower-third" => ("(w-text_w)/2", "h-th-80"),
-        "center" => ("(w-text_w)/2", "(h-text_h)/2"),
-        "top" => ("(w-text_w)/2", "80"),
-        _ => return None,
-    })
 }
 
 pub fn escape_drawtext(text: &str) -> String {
@@ -407,29 +415,21 @@ pub fn escape_drawtext(text: &str) -> String {
         .replace(':', "\\:")
 }
 
-pub fn text_vf(text: &str, position: &str, from: Option<&str>, to: Option<&str>) -> Option<String> {
-    let (x, y) = text_position_xy(position)?;
+pub fn text_vf(text: &str, position: TextPos, span: Option<&(String, String)>) -> String {
+    let (x, y) = position.xy();
     let mut vf = format!(
         "drawtext=text='{}':fontsize=48:fontcolor=white:x={x}:y={y}",
         escape_drawtext(text)
     );
-    if let (Some(from), Some(to)) = (from, to) {
+    if let Some((from, to)) = span {
         vf.push_str(&format!(":enable='between(t,{from},{to})'"));
     }
-    Some(vf)
-}
-
-pub fn text_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
-    resize_argv(input, output, vf, has_audio)
+    vf
 }
 
 pub fn captions_vf(srt: &str) -> String {
     let escaped = srt.replace('\\', "\\\\").replace(':', "\\:");
     format!("subtitles={escaped}")
-}
-
-pub fn captions_argv(input: &str, srt: &str, output: &str, has_audio: bool) -> Vec<String> {
-    resize_argv(input, output, &captions_vf(srt), has_audio)
 }
 
 pub fn frame_argv(input: &str, at: &str, output: &str) -> Vec<String> {

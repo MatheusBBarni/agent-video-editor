@@ -1,18 +1,8 @@
-use assert_cmd::Command;
+mod common;
+
+use common::ave_json;
 use serde_json::Value;
 use std::fs;
-
-fn ave_json(dir: &tempfile::TempDir, args: &[&str]) -> (bool, Value) {
-    let output = Command::cargo_bin("ave")
-        .unwrap()
-        .current_dir(dir.path())
-        .args(args)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
-    (output.status.success(), v)
-}
 
 fn argv_of(v: &Value) -> Vec<&str> {
     v["ffmpeg"]
