@@ -234,13 +234,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             duration,
             output,
             accurate,
-        } => Ok(Op::Trim {
-            input,
-            from,
-            end: TrimEnd::exclusive(to, duration, "trim")?,
-            output: require_output("trim", output)?,
-            accurate,
-        }),
+        } => {
+            let end = TrimEnd::exclusive(to, duration, "trim")?;
+            end.validate_against(&from, "trim")?;
+            Ok(Op::Trim {
+                input,
+                from,
+                end,
+                output: require_output("trim", output)?,
+                accurate,
+            })
+        }
         Command::Concat { inputs, output } => {
             if inputs.len() < 2 {
                 return Err(error::Error::new(
@@ -298,8 +302,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             mix,
             output,
         } => {
-            let (mute, audio, mix) =
-                replace_audio_choice(mute, audio, mix, "replace-audio")?;
+            let (mute, audio, mix) = replace_audio_choice(mute, audio, mix, "replace-audio")?;
             Ok(Op::ReplaceAudio {
                 input,
                 output: require_output("replace-audio", output)?,

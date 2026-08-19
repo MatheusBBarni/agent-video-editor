@@ -31,6 +31,38 @@ impl TrimEnd {
         }
     }
 
+    pub fn validate_against(&self, from: &str, op: &'static str) -> Result<(), Error> {
+        let from_s = parse_timestamp(from)
+            .ok_or_else(|| Error::new(op, "bad_timestamp", format!("invalid timestamp: {from}")))?;
+        match self {
+            Self::To(to) => {
+                let to_s = parse_timestamp(to).ok_or_else(|| {
+                    Error::new(op, "bad_timestamp", format!("invalid timestamp: {to}"))
+                })?;
+                if from_s >= to_s {
+                    return Err(Error::new(op, "bad_range", "from must be less than to"));
+                }
+            }
+            Self::Duration(duration) => {
+                let duration_s = parse_timestamp(duration).ok_or_else(|| {
+                    Error::new(
+                        op,
+                        "bad_timestamp",
+                        format!("invalid timestamp: {duration}"),
+                    )
+                })?;
+                if duration_s <= 0.0 {
+                    return Err(Error::new(
+                        op,
+                        "bad_range",
+                        "duration must be greater than 0",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn ffmpeg_flag(&self) -> (&'static str, &str) {
         match self {
             Self::To(value) => ("-to", value),
@@ -173,17 +205,22 @@ impl Op {
                 })
         };
         match op {
-            "trim" => Ok(Self::Trim {
-                input: req("input")?,
-                from: req("from")?,
-                end: TrimEnd::exclusive(
+            "trim" => {
+                let from = req("from")?;
+                let end = TrimEnd::exclusive(
                     json_string_or_number(&step["to"]),
                     json_string_or_number(&step["duration"]),
                     "run",
-                )?,
-                output: req("output")?,
-                accurate: step["accurate"].as_bool().unwrap_or(false),
-            }),
+                )?;
+                end.validate_against(&from, "run")?;
+                Ok(Self::Trim {
+                    input: req("input")?,
+                    from,
+                    end,
+                    output: req("output")?,
+                    accurate: step["accurate"].as_bool().unwrap_or(false),
+                })
+            }
             "concat" => {
                 let inputs = step["inputs"]
                     .as_array()
@@ -311,6 +348,37 @@ impl Op {
             )),
         }
     }
+}
+
+pub fn parse_timestamp(raw: &str) -> Option<f64> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    if !raw.contains(':') {
+        return parse_nonneg_finite(raw);
+    }
+    let parts: Vec<&str> = raw.split(':').collect();
+    match parts.as_slice() {
+        [minutes, seconds] => {
+            let minutes: u64 = minutes.parse().ok()?;
+            let seconds = parse_nonneg_finite(seconds)?;
+            (seconds < 60.0).then_some(minutes as f64 * 60.0 + seconds)
+        }
+        [hours, minutes, seconds] => {
+            let hours: u64 = hours.parse().ok()?;
+            let minutes: u64 = minutes.parse().ok()?;
+            let seconds = parse_nonneg_finite(seconds)?;
+            (minutes < 60 && seconds < 60.0)
+                .then_some(hours as f64 * 3600.0 + minutes as f64 * 60.0 + seconds)
+        }
+        _ => None,
+    }
+}
+
+fn parse_nonneg_finite(raw: &str) -> Option<f64> {
+    let n: f64 = raw.parse().ok()?;
+    (n.is_finite() && n >= 0.0).then_some(n)
 }
 
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {

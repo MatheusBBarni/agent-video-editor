@@ -430,10 +430,10 @@ fn resolve_path(cwd: &std::path::Path, path: &str) -> std::path::PathBuf {
         return canon;
     }
     match (normalized.parent(), normalized.file_name()) {
-        (Some(parent), Some(name)) => match parent.canonicalize() {
-            Ok(parent) => parent.join(name),
-            Err(_) => parent.join(name),
-        },
+        (Some(parent), Some(name)) => parent
+            .canonicalize()
+            .unwrap_or_else(|_| parent.to_path_buf())
+            .join(name),
         _ => normalized,
     }
 }
