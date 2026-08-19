@@ -154,6 +154,12 @@ pub enum Op {
         srt: String,
         output: String,
     },
+    Fade {
+        input: String,
+        fade_in: Option<String>,
+        fade_out: Option<String>,
+        output: String,
+    },
     Text {
         input: String,
         text: String,
@@ -185,6 +191,7 @@ impl Op {
             Self::Frame { .. } => "frame",
             Self::Captions { .. } => "captions",
             Self::Text { .. } => "text",
+            Self::Fade { .. } => "fade",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -205,7 +212,8 @@ impl Op {
             | Self::Convert { output, .. }
             | Self::Frame { output, .. }
             | Self::Captions { output, .. }
-            | Self::Text { output, .. } => Some(output),
+            | Self::Text { output, .. }
+            | Self::Fade { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -222,6 +230,7 @@ impl Op {
             | Self::Convert { input, .. }
             | Self::Frame { input, .. }
             | Self::Text { input, .. }
+            | Self::Fade { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
@@ -397,6 +406,19 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "fade" => {
+                let (fade_in, fade_out) = fade_pair(
+                    json_string_or_number(&step["in"]),
+                    json_string_or_number(&step["out"]),
+                    "run",
+                )?;
+                Ok(Self::Fade {
+                    input: req("input")?,
+                    fade_in,
+                    fade_out,
+                    output: req("output")?,
+                })
+            }
             "text" => Ok(Self::Text {
                 input: req("input")?,
                 text: req("text")?,
@@ -575,6 +597,31 @@ pub fn replace_audio_choice(
             "replace-audio accepts only one of mute, audio, or mix",
         )),
     }
+}
+
+pub fn fade_pair(
+    fade_in: Option<String>,
+    fade_out: Option<String>,
+    op: &'static str,
+) -> Result<(Option<String>, Option<String>), Error> {
+    let fade_in = fade_in.filter(|s| !s.is_empty());
+    let fade_out = fade_out.filter(|s| !s.is_empty());
+    if fade_in.is_none() && fade_out.is_none() {
+        return Err(Error::new(
+            op,
+            "missing_field",
+            "fade requires --in or --out",
+        ));
+    }
+    for value in fade_in.iter().chain(fade_out.iter()) {
+        let secs = parse_timestamp(value).ok_or_else(|| {
+            Error::new(op, "bad_timestamp", format!("invalid timestamp: {value}"))
+        })?;
+        if secs <= 0.0 {
+            return Err(Error::new(op, "bad_range", "fade duration must be greater than 0"));
+        }
+    }
+    Ok((fade_in, fade_out))
 }
 
 pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, Error> {

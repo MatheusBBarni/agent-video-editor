@@ -371,6 +371,28 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Fade {
+            input,
+            fade_in,
+            fade_out,
+            output,
+        } => {
+            let duration = probed_duration(&ctx.ffprobe, input, "fade").ok();
+            let vf = recipes::fade_vf(
+                fade_in.as_deref().and_then(parse_timestamp),
+                fade_out.as_deref().and_then(parse_timestamp),
+                duration,
+            );
+            Ok(Job {
+                argv: recipes::with_bin(
+                    recipes::fade_argv(input, output, &vf, audio.unwrap_or(false)),
+                    bin,
+                ),
+                passes: None,
+                cleanup: vec![],
+                reencode: true,
+            })
+        }
         Op::Text {
             input,
             text,

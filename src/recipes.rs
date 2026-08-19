@@ -335,6 +335,27 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn fade_vf(fade_in: Option<f64>, fade_out: Option<f64>, duration_s: Option<f64>) -> String {
+    let mut parts = Vec::new();
+    if let Some(d) = fade_in {
+        parts.push(format!("fade=t=in:st=0:d={d}"));
+    }
+    if let Some(d) = fade_out {
+        match duration_s {
+            Some(total) => {
+                let start = (total - d).max(0.0);
+                parts.push(format!("fade=t=out:st={start}:d={d}"));
+            }
+            None => parts.push(format!("fade=t=out:d={d}")),
+        }
+    }
+    parts.join(",")
+}
+
+pub fn fade_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
+    resize_argv(input, output, vf, has_audio)
+}
+
 pub fn text_position_xy(position: &str) -> Option<(&'static str, &'static str)> {
     Some(match position {
         "lower-third" => ("(w-text_w)/2", "h-th-80"),

@@ -9,7 +9,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
+use op::{Op, TrimEnd, fade_pair, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -153,6 +153,15 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Fade {
+        input: String,
+        #[arg(long = "in")]
+        fade_in: Option<String>,
+        #[arg(long = "out")]
+        fade_out: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Text {
         input: String,
         #[arg(long)]
@@ -248,6 +257,7 @@ fn usage_op() -> &'static str {
             "frame" => Some("frame"),
             "captions" => Some("captions"),
             "text" => Some("text"),
+            "fade" => Some("fade"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -451,6 +461,20 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             output: require_output("speed", output)?,
             factor,
         }),
+        Command::Fade {
+            input,
+            fade_in,
+            fade_out,
+            output,
+        } => {
+            let (fade_in, fade_out) = fade_pair(fade_in, fade_out, "fade")?;
+            Ok(Op::Fade {
+                input,
+                fade_in,
+                fade_out,
+                output: require_output("fade", output)?,
+            })
+        }
         Command::Text {
             input,
             text,
