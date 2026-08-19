@@ -391,7 +391,11 @@ impl Op {
                     preset,
                     width,
                     height,
-                    fit: parse_fit(step["fit"].as_str(), "run")?,
+                    fit: parse_resize_fit(
+                        step["fit"].as_str(),
+                        step["stretch"].as_bool().unwrap_or(false),
+                        "run",
+                    )?,
                 })
             }
             "speed" => {
@@ -753,6 +757,24 @@ pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Er
             format!("unknown fit: {other}"),
         )),
     }
+}
+
+pub fn parse_resize_fit(
+    fit: Option<&str>,
+    stretch: bool,
+    op: &'static str,
+) -> Result<recipes::Fit, Error> {
+    if stretch {
+        return match fit {
+            None | Some("stretch") => Ok(recipes::Fit::Stretch),
+            Some(_) => Err(Error::new(
+                op,
+                "conflicting_fields",
+                "resize accepts only one of stretch or fit",
+            )),
+        };
+    }
+    parse_fit(fit, op)
 }
 
 pub fn parse_text_pos(raw: Option<&str>, op: &'static str) -> Result<recipes::TextPos, Error> {

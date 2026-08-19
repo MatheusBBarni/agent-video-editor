@@ -12,8 +12,8 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every, parse_fit,
-    parse_keep_ranges, parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output,
+    Op, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every, parse_keep_ranges,
+    parse_resize_fit, parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output,
     require_subtitle_file, text_span,
 };
 
@@ -97,6 +97,8 @@ enum Command {
         height: Option<u32>,
         #[arg(long)]
         fit: Option<String>,
+        #[arg(long)]
+        stretch: bool,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -452,6 +454,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             width,
             height,
             fit,
+            stretch,
             output,
         } => Ok(Op::Resize {
             input,
@@ -459,7 +462,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             preset,
             width,
             height,
-            fit: parse_fit(fit.as_deref(), "resize")?,
+            fit: parse_resize_fit(fit.as_deref(), stretch, "resize")?,
         }),
         Command::Convert { input, output } => Ok(Op::Convert {
             input,
