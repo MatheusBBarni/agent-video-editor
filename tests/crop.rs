@@ -176,3 +176,19 @@ fn crop_copy_only_dry_run_fails() {
     assert_eq!(v["error"], "copy_only");
     assert!(!dir.path().join("out.mp4").exists());
 }
+
+#[test]
+fn crop_unprobeable_real_run_fails_ffprobe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &["crop", "in.mp4", "--bottom", "40", "-o", "out.mp4"],
+    );
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "crop");
+    assert_eq!(v["error"], "ffprobe_failed");
+    assert!(!dir.path().join("out.mp4").exists());
+}
