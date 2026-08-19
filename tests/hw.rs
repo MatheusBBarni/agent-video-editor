@@ -149,3 +149,28 @@ fn hw_does_not_apply_to_copy_trim() {
         "hw must not apply to copy trim: {argv:?}"
     );
 }
+
+#[test]
+fn hw_videotoolbox_compress_keeps_quality_flag() {
+    let (_v, argv) = dry_run_argv(&[
+        "--hw",
+        "videotoolbox",
+        "compress",
+        "in.mp4",
+        "-o",
+        "out.mp4",
+        "--dry-run",
+    ]);
+    assert!(
+        argv.iter().any(|a| a == "h264_videotoolbox"),
+        "compress should use videotoolbox: {argv:?}"
+    );
+    assert!(
+        argv.windows(2).any(|w| w[0] == "-q:v"),
+        "videotoolbox must keep a quality flag: {argv:?}"
+    );
+    assert!(
+        !argv.iter().any(|a| a == "-crf"),
+        "videotoolbox rejects -crf so it must be substituted: {argv:?}"
+    );
+}
