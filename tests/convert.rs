@@ -53,6 +53,38 @@ fn convert_gif_dry_run_is_two_pass_and_leaves_no_palette() {
     );
 }
 
+#[test]
+fn convert_gif_pass1_failure_leaves_user_palette() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(dir.path().join("palette.png"), b"user-palette").unwrap();
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["convert", "in.mp4", "-o", "out.gif"])
+        .assert()
+        .failure();
+
+    assert_eq!(
+        fs::read(dir.path().join("palette.png")).unwrap(),
+        b"user-palette"
+    );
+    assert!(!dir.path().join("out.gif").exists());
+    let extra: Vec<_> = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .filter(|name| {
+            let name = name.to_string_lossy();
+            name.starts_with("palette") && name != "palette.png"
+        })
+        .collect();
+    assert!(
+        extra.is_empty(),
+        "pass-1 failure left extra palette files: {extra:?}"
+    );
+}
+
 fn argv_tokens(v: &Value) -> Vec<String> {
     let mut tokens = Vec::new();
     if let Some(ffmpeg) = v["ffmpeg"].as_array() {
