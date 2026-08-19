@@ -42,6 +42,39 @@ fn trim_dry_run_prints_copy_recipe_and_writes_nothing() {
 }
 
 #[test]
+fn trim_duration_dry_run_uses_t_not_to() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("out.mp4");
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "10",
+            "--duration",
+            "5",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(
+        v["ffmpeg"],
+        serde_json::json!(["ffmpeg", "-y", "-ss", "10", "-t", "5", "-i", "in.mp4", "-c", "copy", "out.mp4"])
+    );
+    assert!(!output.exists(), "dry-run must not write the output file");
+}
+
+#[test]
 fn trim_without_output_fails_with_json_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
