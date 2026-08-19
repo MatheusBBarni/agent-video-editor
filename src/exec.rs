@@ -319,13 +319,14 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 .and_then(|e| e.to_str())
                 == Some("gif");
             if gif {
-                let (pass1, pass2) = recipes::gif_passes(input, output);
+                let palette = unique_palette_path();
+                let (pass1, pass2) = recipes::gif_passes(input, output, &palette);
                 let pass1 = recipes::with_bin(pass1, bin);
                 let pass2 = recipes::with_bin(pass2, bin);
                 Ok(Job {
                     argv: pass2.clone(),
                     passes: Some(vec![pass1, pass2]),
-                    cleanup: vec!["palette.png".into()],
+                    cleanup: vec![palette],
                     reencode: true,
                 })
             } else {
@@ -347,6 +348,20 @@ fn concat_can_copy(inputs: &[String], ffprobe_bin: &str) -> bool {
         .filter_map(|input| probe::probe_video(ffprobe_bin, input))
         .collect();
     shapes.is_empty() || (shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1]))
+}
+
+fn unique_palette_path() -> String {
+    std::env::temp_dir()
+        .join(format!(
+            "ave-palette-{}-{}.png",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ))
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn write_concat_list(inputs: &[String]) -> Result<String, Error> {

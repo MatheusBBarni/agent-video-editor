@@ -214,7 +214,7 @@ pub fn compress_argv(input: &str, output: &str, crf: u8, preset: &str) -> Vec<St
     ]
 }
 
-pub fn gif_passes(input: &str, output: &str) -> (Vec<String>, Vec<String>) {
+pub fn gif_passes(input: &str, output: &str, palette: &str) -> (Vec<String>, Vec<String>) {
     let pass1 = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -222,7 +222,7 @@ pub fn gif_passes(input: &str, output: &str) -> (Vec<String>, Vec<String>) {
         input.into(),
         "-vf".into(),
         "fps=15,scale=480:-1:flags=lanczos,palettegen".into(),
-        "palette.png".into(),
+        palette.into(),
     ];
     let pass2 = vec![
         "ffmpeg".into(),
@@ -230,7 +230,7 @@ pub fn gif_passes(input: &str, output: &str) -> (Vec<String>, Vec<String>) {
         "-i".into(),
         input.into(),
         "-i".into(),
-        "palette.png".into(),
+        palette.into(),
         "-filter_complex".into(),
         "fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse".into(),
         output.into(),
