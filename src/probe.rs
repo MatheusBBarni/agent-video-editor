@@ -6,6 +6,7 @@ pub struct VideoShape {
     pub width: u32,
     pub height: u32,
     pub fps: String,
+    pub rotate_deg: u32,
 }
 
 pub struct MediaInfo {
@@ -145,6 +146,7 @@ pub fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {
         width: info.width,
         height: info.height,
         fps: info.fps,
+        rotate_deg: info.rotate_deg,
     })
 }
 
