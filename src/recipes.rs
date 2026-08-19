@@ -335,6 +335,47 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn text_position_xy(position: &str) -> Option<(&'static str, &'static str)> {
+    Some(match position {
+        "lower-third" => ("(w-text_w)/2", "h-th-80"),
+        "center" => ("(w-text_w)/2", "(h-text_h)/2"),
+        "top" => ("(w-text_w)/2", "80"),
+        _ => return None,
+    })
+}
+
+pub fn escape_drawtext(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace(':', "\\:")
+}
+
+pub fn text_vf(
+    text: &str,
+    position: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Option<String> {
+    let (x, y) = text_position_xy(position)?;
+    let mut vf = format!(
+        "drawtext=text='{}':fontsize=48:fontcolor=white:x={x}:y={y}",
+        escape_drawtext(text)
+    );
+    if let (Some(from), Some(to)) = (from, to) {
+        vf.push_str(&format!(":enable='between(t,{from},{to})'"));
+    }
+    Some(vf)
+}
+
+pub fn text_argv(
+    input: &str,
+    output: &str,
+    vf: &str,
+    has_audio: bool,
+) -> Vec<String> {
+    resize_argv(input, output, vf, has_audio)
+}
+
 pub fn captions_vf(srt: &str) -> String {
     let escaped = srt.replace('\\', "\\\\").replace(':', "\\:");
     format!("subtitles={escaped}")

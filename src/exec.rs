@@ -371,6 +371,34 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Text {
+            input,
+            text,
+            position,
+            from,
+            to,
+            output,
+        } => {
+            let position = position.as_deref().unwrap_or("lower-third");
+            let vf = recipes::text_vf(text, position, from.as_deref(), to.as_deref()).ok_or_else(
+                || {
+                    Error::new(
+                        "text",
+                        "unknown_position",
+                        format!("unknown position: {position}"),
+                    )
+                },
+            )?;
+            Ok(Job {
+                argv: recipes::with_bin(
+                    recipes::text_argv(input, output, &vf, audio.unwrap_or(false)),
+                    bin,
+                ),
+                passes: None,
+                cleanup: vec![],
+                reencode: true,
+            })
+        }
         Op::Captions {
             input,
             srt,

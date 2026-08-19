@@ -153,6 +153,19 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Text {
+        input: String,
+        #[arg(long)]
+        text: String,
+        #[arg(long)]
+        position: Option<String>,
+        #[arg(long)]
+        from: Option<String>,
+        #[arg(long)]
+        to: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
@@ -234,6 +247,7 @@ fn usage_op() -> &'static str {
             "speed" => Some("speed"),
             "frame" => Some("frame"),
             "captions" => Some("captions"),
+            "text" => Some("text"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -436,6 +450,21 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             output: require_output("speed", output)?,
             factor,
+        }),
+        Command::Text {
+            input,
+            text,
+            position,
+            from,
+            to,
+            output,
+        } => Ok(Op::Text {
+            input,
+            text,
+            position,
+            from,
+            to,
+            output: require_output("text", output)?,
         }),
         Command::Captions { input, srt, output } => Ok(Op::Captions {
             input,

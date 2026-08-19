@@ -154,6 +154,14 @@ pub enum Op {
         srt: String,
         output: String,
     },
+    Text {
+        input: String,
+        text: String,
+        position: Option<String>,
+        from: Option<String>,
+        to: Option<String>,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -176,6 +184,7 @@ impl Op {
             Self::Convert { .. } => "convert",
             Self::Frame { .. } => "frame",
             Self::Captions { .. } => "captions",
+            Self::Text { .. } => "text",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -195,7 +204,8 @@ impl Op {
             | Self::Compress { output, .. }
             | Self::Convert { output, .. }
             | Self::Frame { output, .. }
-            | Self::Captions { output, .. } => Some(output),
+            | Self::Captions { output, .. }
+            | Self::Text { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -211,6 +221,7 @@ impl Op {
             | Self::Compress { input, .. }
             | Self::Convert { input, .. }
             | Self::Frame { input, .. }
+            | Self::Text { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
@@ -384,6 +395,14 @@ impl Op {
             }),
             "convert" => Ok(Self::Convert {
                 input: req("input")?,
+                output: req("output")?,
+            }),
+            "text" => Ok(Self::Text {
+                input: req("input")?,
+                text: req("text")?,
+                position: step["position"].as_str().map(str::to_string),
+                from: json_string_or_number(&step["from"]),
+                to: json_string_or_number(&step["to"]),
                 output: req("output")?,
             }),
             "captions" => Ok(Self::Captions {
