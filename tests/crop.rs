@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ave_json, ffmpeg_available, write_fixture};
+use common::{ave_json, ffmpeg_available, write_clip};
 use std::fs;
 
 #[test]
@@ -65,7 +65,7 @@ fn crop_bottom_larger_than_height_fails_bad_range() {
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("in.mp4"));
+    write_clip(&dir.path().join("in.mp4"));
 
     let (ok, v) = ave_json(
         &dir,

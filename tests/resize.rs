@@ -1,7 +1,7 @@
 mod common;
 
 use assert_cmd::Command;
-use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
+use common::{ffmpeg_available, write_clip, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -166,7 +166,7 @@ fn resize_with_audio_dry_run_keeps_audio_copy() {
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("in.mp4"));
+    write_clip(&dir.path().join("in.mp4"));
     let argv = resize_dry_run_argv(&dir, "in.mp4");
     assert!(
         argv.windows(2).any(|w| w == ["-c:a", "copy"]),

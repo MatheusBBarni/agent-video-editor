@@ -1,7 +1,7 @@
 mod common;
 
 use assert_cmd::Command;
-use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
+use common::{ffmpeg_available, write_clip, write_video_only_fixture};
 use serde_json::Value;
 
 #[test]
@@ -12,7 +12,7 @@ fn speed_factor_4_dry_run_chains_atempo() {
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("in.mp4"));
+    write_clip(&dir.path().join("in.mp4"));
     let argv = speed_dry_run_argv(&dir, "in.mp4", "4");
     assert!(
         argv.iter().any(|a| a.contains("setpts=0.25*PTS")),

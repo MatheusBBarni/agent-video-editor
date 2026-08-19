@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ave_json, ffmpeg_available, write_fixture};
+use common::{ave_json, ffmpeg_available, write_clip};
 use std::fs;
 
 #[test]
@@ -152,7 +152,7 @@ fn frames_every_30_on_one_second_writes_one_still() {
         return;
     }
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("in.mp4"));
+    write_clip(&dir.path().join("in.mp4"));
     let (ok, v) = ave_json(&dir, &["frames", "in.mp4", "--every", "30", "-o", "review"]);
     assert!(ok, "{v}");
     let frames = v["frames"].as_array().expect("frames");
