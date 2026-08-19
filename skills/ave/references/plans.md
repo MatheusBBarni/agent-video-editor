@@ -5,8 +5,12 @@ Use `ave run` when the job is more than one verb. One hole → `cut-out`. N cuts
 ```bash
 ave run plan.json
 ave run plan.json --dry-run
+ave run plan.json --workdir tmp
+ave schema
 ave run - < plan.json
 ```
+
+`ave schema` prints the JSON Schema for this plan. `--workdir DIR` puts relative `output` paths (and later inputs that reuse those names) under `DIR`. Absolute paths stay as written. `--dry-run` does not create `DIR`.
 
 ## Schema
 

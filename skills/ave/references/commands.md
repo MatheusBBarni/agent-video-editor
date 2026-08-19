@@ -203,7 +203,7 @@ ave install-skill --dir /path/to/skills
 ave --dry-run install-skill --provider cursor
 ```
 
-`--provider` is multi-select (`agents`, `claude`, `pi`, `cursor`, `all`). Repeat the flag or use commas. No `--provider` and no `--dir` → JSON lists the choices and exits 1.
+`--provider` is multi-select (`agents`, `claude`, `pi`, `cursor`, `codex`, `continue`, `windsurf`, `copilot`, `all`). Repeat the flag or use commas. No `--provider` and no `--dir` → JSON lists the choices and exits 1.
 
 `--global` uses `~/…` instead of the project. `--dir DIR` writes `DIR/ave` and skips providers. Extra `--dir` values become symlinks to the first.
 

@@ -537,7 +537,7 @@ impl Op {
                     output: req("output")?,
                 })
             }
-            "info" | "doctor" | "detect" => Err(Error::new(
+            "info" | "doctor" | "detect" | "schema" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
                 format!("{op} is not valid inside ave run"),

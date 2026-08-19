@@ -525,3 +525,71 @@ fn run_trim_numeric_to_and_duration_conflict() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["error"], "conflicting_fields");
 }
+
+#[test]
+fn run_workdir_dry_run_prefixes_relative_outputs() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"steps":[{"op":"trim","input":"in.mp4","from":"0","to":"10","output":"a.mp4"}]}"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--workdir", "tmp", "--dry-run"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        argv.iter()
+            .any(|a| a.contains("tmp") && a.ends_with("a.mp4")),
+        "relative output should be under tmp: {argv:?}"
+    );
+    assert!(
+        !dir.path().join("tmp").exists(),
+        "--dry-run must not create workdir"
+    );
+}
+
+#[test]
+fn run_workdir_writes_into_dir_not_cwd() {
+    if !require_ffmpeg() {
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("in.mp4"), 1.0, (320, 240), true);
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"steps":[{"op":"trim","input":"in.mp4","from":"0","to":"1","output":"a.mp4"}]}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--workdir", "tmp"])
+        .assert()
+        .success();
+
+    assert!(
+        dir.path().join("tmp/a.mp4").exists(),
+        "output should land in workdir"
+    );
+    assert!(
+        !dir.path().join("a.mp4").exists(),
+        "output must not land in cwd"
+    );
+}

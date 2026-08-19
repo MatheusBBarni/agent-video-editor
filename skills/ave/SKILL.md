@@ -80,7 +80,8 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH]
 | `volume` | `<in> --db N -o OUT` | signed dB (`-6`, `3`) |
 | `rotate` | `<in> --deg 90 -o OUT` | `90` `180` `270` only; re-encodes with `transpose` |
 | `crop` | `<in> --bottom N -o OUT` | or `--top` / `--left` / `--right` (pixels, coded frame). At least one edge. Empties the frame → `bad_range`. Not `resize --fit crop` |
-| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` / `frames` / `detect` steps |
+| `schema` | | print the `run` plan JSON Schema. No ffmpeg. Not valid in `run` |
+| `run` | `plan.json` or `-` | JSON step list; optional `--workdir DIR` for relative outputs. See `references/plans.md`. No `info` / `doctor` / `frames` / `detect` / `schema` steps |
 
 Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
 

@@ -76,6 +76,27 @@ fn install_skill_without_provider_lists_choices() {
     assert!(ids.contains(&"agents"));
     assert!(ids.contains(&"pi"));
     assert!(ids.contains(&"cursor"));
+    assert!(ids.contains(&"codex"));
+    assert!(ids.contains(&"continue"));
+    assert!(ids.contains(&"windsurf"));
+    assert!(ids.contains(&"copilot"));
+}
+
+#[test]
+fn install_skill_continue_writes_documented_path() {
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["install-skill", "--provider", "continue"])
+        .assert()
+        .success();
+
+    assert!(
+        dir.path().join(".continue/skills/ave/SKILL.md").is_file(),
+        "continue provider should write .continue/skills/ave"
+    );
 }
 
 #[test]

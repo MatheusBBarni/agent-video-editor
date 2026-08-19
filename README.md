@@ -148,7 +148,8 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `overlay` | Logo/image. `--position top-right` (default) or `--x` / `--y`. Optional `--opacity`, `--from` / `--to` |
 | `compress` | CRF 23, preset `medium` unless you pass `--crf` / `--preset` |
 | `convert` | Container from the output extension. `.gif` is a two-pass palette |
-| `run` | JSON plan, or `-` for stdin |
+| `schema` | Print the `run` plan JSON Schema |
+| `run` | JSON plan, or `-` for stdin. `--workdir DIR` for relative outputs |
 | `install-skill` | Install the agent skill into one provider folder; symlink the rest |
 
 Resize presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080. `--fit pad` letterboxes; `crop` fills; `stretch` ignores aspect.
@@ -175,7 +176,11 @@ ave install-skill --provider all --global
 | `claude` | `.claude/skills` | `~/.claude/skills` |
 | `pi` | `.pi/agent/skills` | `~/.pi/agent/skills` |
 | `cursor` | `.cursor/skills` | `~/.cursor/skills` |
-| `all` | those four | those four under `~/` |
+| `codex` | `.codex/skills` | `~/.codex/skills` |
+| `continue` | `.continue/skills` | `~/.continue/skills` |
+| `windsurf` | `.windsurf/skills` | `~/.windsurf/skills` |
+| `copilot` | `.github/skills` | `~/.github/skills` |
+| `all` | those eight | those eight under `~/` |
 
 `--dir DIR` writes `DIR/ave` and ignores providers. Extra `--dir` values become symlinks to the first. No `--provider` and no `--dir` prints the list and exits 1.
 

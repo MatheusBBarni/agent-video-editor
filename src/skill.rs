@@ -18,6 +18,14 @@ pub enum Provider {
     Pi,
     /// Cursor (.cursor/skills)
     Cursor,
+    /// Codex (.codex/skills)
+    Codex,
+    /// Continue (.continue/skills)
+    Continue,
+    /// Windsurf (.windsurf/skills)
+    Windsurf,
+    /// GitHub Copilot (.github/skills)
+    Copilot,
     /// Every built-in provider
     All,
 }
@@ -48,7 +56,7 @@ struct InstallFailEnvelope {
     providers: Vec<ProviderInfo>,
 }
 
-const PROVIDERS: [ProviderInfo; 4] = [
+const PROVIDERS: [ProviderInfo; 8] = [
     ProviderInfo {
         id: "agents",
         project: ".agents/skills",
@@ -68,6 +76,26 @@ const PROVIDERS: [ProviderInfo; 4] = [
         id: "cursor",
         project: ".cursor/skills",
         global: "~/.cursor/skills",
+    },
+    ProviderInfo {
+        id: "codex",
+        project: ".codex/skills",
+        global: "~/.codex/skills",
+    },
+    ProviderInfo {
+        id: "continue",
+        project: ".continue/skills",
+        global: "~/.continue/skills",
+    },
+    ProviderInfo {
+        id: "windsurf",
+        project: ".windsurf/skills",
+        global: "~/.windsurf/skills",
+    },
+    ProviderInfo {
+        id: "copilot",
+        project: ".github/skills",
+        global: "~/.github/skills",
     },
 ];
 
@@ -186,6 +214,10 @@ fn dest_roots(
                     Provider::Claude,
                     Provider::Pi,
                     Provider::Cursor,
+                    Provider::Codex,
+                    Provider::Continue,
+                    Provider::Windsurf,
+                    Provider::Copilot,
                 ]);
             }
             other => selected.push(*other),
@@ -210,6 +242,10 @@ fn provider_root(provider: Provider, home: Option<&Path>) -> PathBuf {
         Provider::Claude => Path::new(".claude/skills"),
         Provider::Pi => Path::new(".pi/agent/skills"),
         Provider::Cursor => Path::new(".cursor/skills"),
+        Provider::Codex => Path::new(".codex/skills"),
+        Provider::Continue => Path::new(".continue/skills"),
+        Provider::Windsurf => Path::new(".windsurf/skills"),
+        Provider::Copilot => Path::new(".github/skills"),
         Provider::All => unreachable!("All is expanded before this"),
     };
     match home {

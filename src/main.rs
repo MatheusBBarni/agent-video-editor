@@ -8,7 +8,9 @@ mod overlay;
 mod probe;
 mod recipes;
 mod report;
+mod schema;
 mod skill;
+mod workdir;
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
@@ -59,8 +61,11 @@ enum Command {
         accurate: bool,
     },
     Doctor,
+    Schema,
     Run {
         plan: String,
+        #[arg(long)]
+        workdir: Option<String>,
     },
     Info {
         input: String,
@@ -249,7 +254,7 @@ enum Command {
     #[command(name = "install-skill")]
     InstallSkill {
         /// Agent providers to install into (repeatable or comma-separated).
-        /// One of: agents, claude, pi, cursor, all.
+        /// One of: agents, claude, pi, cursor, codex, continue, windsurf, copilot, all.
         /// First provider gets the files; the others get a symlink to it.
         #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
         provider: Vec<skill::Provider>,
@@ -285,7 +290,8 @@ fn main() {
     };
 
     match cli.command {
-        Command::Run { plan } => run_cmd(&plan, &ctx, cli.human),
+        Command::Schema => schema::print(),
+        Command::Run { plan, workdir } => run_cmd(&plan, workdir.as_deref(), &ctx, cli.human),
         Command::InstallSkill {
             provider,
             dirs,
@@ -306,6 +312,7 @@ fn usage_op() -> &'static str {
         .find_map(|arg| match arg.as_str() {
             "trim" => Some("trim"),
             "doctor" => Some("doctor"),
+            "schema" => Some("schema"),
             "run" => Some("run"),
             "info" => Some("info"),
             "detect" => Some("detect"),
@@ -333,7 +340,7 @@ fn usage_op() -> &'static str {
         .unwrap_or("ave")
 }
 
-fn run_cmd(plan: &str, ctx: &Ctx, human: bool) {
+fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool) {
     let text = if plan == "-" {
         use std::io::Read;
         let mut buf = String::new();
@@ -358,6 +365,15 @@ fn run_cmd(plan: &str, ctx: &Ctx, human: bool) {
             Ok(op) => ops.push(op),
             Err(err) => error::fail(err),
         }
+    }
+
+    if let Some(dir) = workdir {
+        if !ctx.dry_run {
+            if let Err(e) = std::fs::create_dir_all(dir) {
+                error::fail(error::Error::new("run", "workdir", e.to_string()));
+            }
+        }
+        workdir::apply(&mut ops, dir);
     }
 
     match run_plan(&ops, ctx) {
@@ -398,7 +414,7 @@ struct PlanFile {
 
 fn to_op(command: Command) -> Result<Op, error::Error> {
     match command {
-        Command::Run { .. } | Command::InstallSkill { .. } => {
+        Command::Run { .. } | Command::InstallSkill { .. } | Command::Schema => {
             unreachable!("handled separately")
         }
         Command::Doctor => Ok(Op::Doctor),
