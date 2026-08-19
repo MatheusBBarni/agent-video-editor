@@ -490,6 +490,23 @@ impl Op {
                 srt: require_subtitle_file("run", req("srt")?)?,
                 output: req("output")?,
             }),
+            "crop" => {
+                let (top, bottom, left, right) = crop_insets(
+                    json_u32(&step["top"]),
+                    json_u32(&step["bottom"]),
+                    json_u32(&step["left"]),
+                    json_u32(&step["right"]),
+                    "run",
+                )?;
+                Ok(Self::Crop {
+                    input: req("input")?,
+                    top,
+                    bottom,
+                    left,
+                    right,
+                    output: req("output")?,
+                })
+            }
             "frames" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
@@ -631,6 +648,10 @@ pub fn parse_keep_range(raw: &str, op: &'static str) -> Result<KeepRange, Error>
 fn parse_nonneg_finite(raw: &str) -> Option<f64> {
     let n: f64 = raw.parse().ok()?;
     (n.is_finite() && n >= 0.0).then_some(n)
+}
+
+fn json_u32(value: &serde_json::Value) -> Option<u32> {
+    value.as_u64().map(|n| n as u32)
 }
 
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
