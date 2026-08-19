@@ -197,7 +197,12 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             let (w, h) = op.resize_size()?;
             Ok(Job {
                 argv: recipes::with_bin(
-                    recipes::resize_argv(input, output, &recipes::scale_pad(w, h)),
+                    recipes::resize_argv(
+                        input,
+                        output,
+                        &recipes::scale_pad(w, h),
+                        probe::has_audio(&ctx.ffprobe, input),
+                    ),
                     bin,
                 ),
                 passes: None,

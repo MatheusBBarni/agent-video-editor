@@ -65,7 +65,7 @@ pub fn concat_argv(list_path: &str, output: &str, copy: bool) -> Vec<String> {
     ffmpeg
 }
 
-pub fn resize_argv(input: &str, output: &str, vf: &str) -> Vec<String> {
+pub fn resize_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -83,9 +83,10 @@ pub fn resize_argv(input: &str, output: &str, vf: &str) -> Vec<String> {
         "23".into(),
         "-preset".into(),
         "medium".into(),
-        "-c:a".into(),
-        "copy".into(),
     ]);
+    if has_audio {
+        ffmpeg.extend(["-c:a".into(), "copy".into()]);
+    }
     ffmpeg.push(output.into());
     ffmpeg
 }
