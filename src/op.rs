@@ -109,6 +109,7 @@ pub enum Op {
         preset: Option<String>,
         width: Option<u32>,
         height: Option<u32>,
+        fit: Option<String>,
     },
     Speed {
         input: String,
@@ -320,6 +321,7 @@ impl Op {
                     preset: step["preset"].as_str().map(str::to_string),
                     width: step["width"].as_u64().map(|n| n as u32),
                     height: step["height"].as_u64().map(|n| n as u32),
+                    fit: step["fit"].as_str().map(str::to_string),
                 })
             }
             "speed" => {

@@ -195,16 +195,20 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             output,
             accurate,
         } => keep_job(input, ranges, output, *accurate, ctx, bin),
-        Op::Resize { input, output, .. } => {
+        Op::Resize {
+            input,
+            output,
+            fit,
+            ..
+        } => {
             let (w, h) = op.resize_size()?;
+            let vf = match fit.as_deref() {
+                Some("crop") => recipes::scale_crop(w, h),
+                _ => recipes::scale_pad(w, h),
+            };
             Ok(Job {
                 argv: recipes::with_bin(
-                    recipes::resize_argv(
-                        input,
-                        output,
-                        &recipes::scale_pad(w, h),
-                        audio.unwrap_or(false),
-                    ),
+                    recipes::resize_argv(input, output, &vf, audio.unwrap_or(false)),
                     bin,
                 ),
                 passes: None,

@@ -132,6 +132,10 @@ pub fn scale_pad(w: u32, h: u32) -> String {
     )
 }
 
+pub fn scale_crop(w: u32, h: u32) -> String {
+    format!("scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}")
+}
+
 pub fn preset_size(preset: &str) -> Option<(u32, u32)> {
     match preset {
         "tiktok" => Some((1080, 1920)),
