@@ -205,6 +205,19 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Crop {
+        input: String,
+        #[arg(long)]
+        top: Option<u32>,
+        #[arg(long)]
+        bottom: Option<u32>,
+        #[arg(long)]
+        left: Option<u32>,
+        #[arg(long)]
+        right: Option<u32>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
@@ -292,6 +305,7 @@ fn usage_op() -> &'static str {
             "fade" => Some("fade"),
             "volume" => Some("volume"),
             "rotate" => Some("rotate"),
+            "crop" => Some("crop"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -565,5 +579,20 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
                 output: require_output("frame", output)?,
             })
         }
+        Command::Crop {
+            input,
+            top,
+            bottom,
+            left,
+            right,
+            output,
+        } => Ok(Op::Crop {
+            input,
+            top: top.unwrap_or(0),
+            bottom: bottom.unwrap_or(0),
+            left: left.unwrap_or(0),
+            right: right.unwrap_or(0),
+            output: require_output("crop", output)?,
+        }),
     }
 }

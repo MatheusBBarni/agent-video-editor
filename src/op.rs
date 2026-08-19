@@ -184,6 +184,14 @@ pub enum Op {
         span: Option<(String, String)>,
         output: String,
     },
+    Crop {
+        input: String,
+        top: u32,
+        bottom: u32,
+        left: u32,
+        right: u32,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -211,6 +219,7 @@ impl Op {
             Self::Fade { .. } => "fade",
             Self::Volume { .. } => "volume",
             Self::Rotate { .. } => "rotate",
+            Self::Crop { .. } => "crop",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -235,7 +244,8 @@ impl Op {
             | Self::Text { output, .. }
             | Self::Fade { output, .. }
             | Self::Volume { output, .. }
-            | Self::Rotate { output, .. } => Some(output),
+            | Self::Rotate { output, .. }
+            | Self::Crop { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -256,6 +266,7 @@ impl Op {
             | Self::Fade { input, .. }
             | Self::Volume { input, .. }
             | Self::Rotate { input, .. }
+            | Self::Crop { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),

@@ -420,6 +420,20 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             audio.unwrap_or(false),
             bin,
         )),
+        Op::Crop {
+            input,
+            top,
+            bottom,
+            left,
+            right,
+            output,
+        } => Ok(vf_job(
+            input,
+            output,
+            &recipes::crop_filter(*top, *bottom, *left, *right),
+            audio.unwrap_or(false),
+            bin,
+        )),
         Op::Frame { input, at, output } => Ok(reencode_job(recipes::with_bin(
             recipes::frame_argv(input, at, output),
             bin,
