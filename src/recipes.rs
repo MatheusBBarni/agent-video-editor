@@ -310,7 +310,9 @@ pub fn overlay_argv(
         "-filter_complex".into(),
         expr.into(),
     ];
+    ffmpeg.extend(reencode_video_args(23, "medium"));
     push_audio_copy(&mut ffmpeg, has_audio);
+    push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
 }
