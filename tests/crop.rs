@@ -151,3 +151,28 @@ fn run_crop_dry_run_accepts_bottom() {
     assert!(!vf.contains("pad="), "run crop must not pad: {vf}");
     assert!(!dir.path().join("out.mp4").exists());
 }
+
+#[test]
+fn crop_copy_only_dry_run_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "crop",
+            "in.mp4",
+            "--bottom",
+            "40",
+            "-o",
+            "out.mp4",
+            "--copy-only",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "crop");
+    assert_eq!(v["error"], "copy_only");
+    assert!(!dir.path().join("out.mp4").exists());
+}
