@@ -10,8 +10,9 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, fade_pair, parse_db, parse_fit, parse_keep_ranges, parse_rotate_deg,
-    parse_text_pos, replace_audio_choice, require_output, require_subtitle_file, text_span,
+    Op, TrimEnd, fade_pair, parse_at_list, parse_db, parse_every, parse_fit, parse_keep_ranges,
+    parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output, require_subtitle_file,
+    text_span,
 };
 
 #[derive(Parser)]
@@ -149,6 +150,17 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Frames {
+        input: String,
+        #[arg(long)]
+        at: Option<String>,
+        #[arg(long)]
+        every: Option<String>,
+        #[arg(long)]
+        sheet: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Captions {
         input: String,
         #[arg(long)]
@@ -241,6 +253,7 @@ fn main() {
         command => match to_op(command).and_then(|op| execute(&op, &ctx)) {
             Ok(Outcome::Edit(env)) => print_json(&env),
             Ok(Outcome::Info(env)) => print_json(&env),
+            Ok(Outcome::Frames(env)) => print_json(&env),
             Ok(Outcome::Doctor(env)) => {
                 let ok = env.ok;
                 print_json(&env);
@@ -272,6 +285,7 @@ fn usage_op() -> &'static str {
             "extract-audio" => Some("extract-audio"),
             "speed" => Some("speed"),
             "frame" => Some("frame"),
+            "frames" => Some("frames"),
             "captions" => Some("captions"),
             "text" => Some("text"),
             "fade" => Some("fade"),
@@ -522,6 +536,19 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             srt: require_subtitle_file("captions", srt)?,
             output: require_output("captions", output)?,
+        }),
+        Command::Frames {
+            input,
+            at,
+            every,
+            sheet,
+            output,
+        } => Ok(Op::Frames {
+            input,
+            at: parse_at_list(at, every.as_deref(), "frames")?,
+            every: parse_every(every, "frames")?,
+            sheet,
+            output: require_output("frames", output)?,
         }),
         Command::Frame { input, at, output } => {
             if op::parse_timestamp(&at).is_none() {

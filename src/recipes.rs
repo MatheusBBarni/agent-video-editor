@@ -432,6 +432,22 @@ pub fn captions_vf(srt: &str) -> String {
     format!("subtitles={escaped}")
 }
 
+pub fn contact_sheet_argv(inputs: &[&str], output: &str) -> Vec<String> {
+    let mut argv = vec!["ffmpeg".into(), "-y".into()];
+    for input in inputs {
+        argv.extend(["-i".into(), (*input).into()]);
+    }
+    let n = inputs.len().max(1);
+    let cols = ((n as f64).sqrt().ceil() as usize).max(1);
+    let rows = n.div_ceil(cols);
+    argv.extend([
+        "-filter_complex".into(),
+        format!("tile={cols}x{rows}"),
+        output.into(),
+    ]);
+    argv
+}
+
 pub fn frame_argv(input: &str, at: &str, output: &str) -> Vec<String> {
     vec![
         "ffmpeg".into(),
