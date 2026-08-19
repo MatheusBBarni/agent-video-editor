@@ -34,9 +34,10 @@ fn concat_dry_run_uses_concat_demuxer_and_writes_nothing() {
         "expected -safe 0 in {argv:?}"
     );
     assert!(
-        argv.windows(2).any(|w| w == ["-c", "copy"]),
-        "expected stream copy in {argv:?}"
+        !argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "unprobeable concat must re-encode: {argv:?}"
     );
+    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
     assert!(!dir.path().join("out.mp4").exists());
 
     let leftover: Vec<_> = fs::read_dir(dir.path())
@@ -188,4 +189,49 @@ fn concat_same_rotation_dry_run_still_copies() {
         argv.windows(2).any(|w| w == ["-c", "copy"]),
         "matching 90 degree clips must still copy: {argv:?}"
     );
+}
+
+#[test]
+fn concat_matching_fixtures_dry_run_copies() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("a.mp4"), "320x240");
+    write_fixture(&dir.path().join("b.mp4"), "320x240");
+
+    let argv = concat_dry_run_argv(&dir, "a.mp4", "b.mp4");
+    assert!(
+        argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "matching probed clips must still copy: {argv:?}"
+    );
+}
+
+#[test]
+fn concat_unprobeable_copy_only_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.mp4"), b"a").unwrap();
+    fs::write(dir.path().join("b.mp4"), b"b").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "concat",
+            "a.mp4",
+            "b.mp4",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+            "--copy-only",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "copy_only");
 }

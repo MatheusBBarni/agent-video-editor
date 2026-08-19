@@ -386,7 +386,7 @@ fn concat_can_copy(inputs: &[String], ffprobe_bin: &str) -> bool {
         .iter()
         .filter_map(|input| probe::probe_video(ffprobe_bin, input))
         .collect();
-    shapes.is_empty() || (shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1]))
+    shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1])
 }
 
 fn unique_temp_file(kind: &str, ext: &str) -> String {
