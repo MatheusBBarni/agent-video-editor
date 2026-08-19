@@ -167,3 +167,56 @@ fn info_reports_empty_audio_on_video_only_file() {
     assert_eq!(v["audio_codec"], "");
     assert_eq!(v["has_video"], true);
 }
+
+fn write_rotated_fixture(path: &std::path::Path) {
+    let dir = path.parent().expect("fixture parent");
+    let src = dir.join("src-unrotated.mp4");
+    write_fixture(&src);
+    let status = StdCommand::new("ffmpeg")
+        .args([
+            "-y",
+            "-display_rotation",
+            "90",
+            "-i",
+            src.to_str().unwrap(),
+            "-c",
+            "copy",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg rotate remux");
+    assert!(
+        status.status.success(),
+        "ffmpeg rotate remux failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
+#[test]
+fn info_swaps_display_size_when_rotate_is_90() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("rotated.mp4");
+    write_rotated_fixture(&input);
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["info", "rotated.mp4"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["rotate_deg"], 90);
+    assert_eq!(v["width"], 320);
+    assert_eq!(v["height"], 240);
+    assert_eq!(v["display_width"], 240);
+    assert_eq!(v["display_height"], 320);
+}
