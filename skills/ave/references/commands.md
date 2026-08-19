@@ -26,6 +26,8 @@ ave trim clip.mp4 --from 00:00:30 --to 00:01:45 --accurate -o keep.mp4
 ave concat a.mp4 b.mp4 c.mp4 -o joined.mp4
 ```
 
+Stream-copies when codec, coded size, fps, and `rotate_deg` match. Mixed rotation (e.g. 0° + 90°) re-encodes so ffmpeg can autorotate.
+
 ## resize
 
 ```bash
