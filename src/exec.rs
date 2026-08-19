@@ -371,6 +371,16 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Volume {
+            input,
+            db,
+            output,
+        } => Ok(Job {
+            argv: recipes::with_bin(recipes::volume_argv(input, output, *db), bin),
+            passes: None,
+            cleanup: vec![],
+            reencode: true,
+        }),
         Op::Fade {
             input,
             fade_in,

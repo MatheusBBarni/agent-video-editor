@@ -154,6 +154,11 @@ pub enum Op {
         srt: String,
         output: String,
     },
+    Volume {
+        input: String,
+        db: f64,
+        output: String,
+    },
     Fade {
         input: String,
         fade_in: Option<String>,
@@ -192,6 +197,7 @@ impl Op {
             Self::Captions { .. } => "captions",
             Self::Text { .. } => "text",
             Self::Fade { .. } => "fade",
+            Self::Volume { .. } => "volume",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -213,7 +219,8 @@ impl Op {
             | Self::Frame { output, .. }
             | Self::Captions { output, .. }
             | Self::Text { output, .. }
-            | Self::Fade { output, .. } => Some(output),
+            | Self::Fade { output, .. }
+            | Self::Volume { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -231,6 +238,7 @@ impl Op {
             | Self::Frame { input, .. }
             | Self::Text { input, .. }
             | Self::Fade { input, .. }
+            | Self::Volume { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
@@ -406,6 +414,16 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "volume" => {
+                let db = json_string_or_number(&step["db"]).ok_or_else(|| {
+                    Error::new("run", "missing_field", "volume requires db")
+                })?;
+                Ok(Self::Volume {
+                    input: req("input")?,
+                    db: parse_db("run", &db)?,
+                    output: req("output")?,
+                })
+            }
             "fade" => {
                 let (fade_in, fade_out) = fade_pair(
                     json_string_or_number(&step["in"]),
@@ -597,6 +615,16 @@ pub fn replace_audio_choice(
             "replace-audio accepts only one of mute, audio, or mix",
         )),
     }
+}
+
+pub fn parse_db(op: &'static str, raw: &str) -> Result<f64, Error> {
+    let db: f64 = raw.parse().map_err(|_| {
+        Error::new(op, "bad_range", format!("invalid db value: {raw}"))
+    })?;
+    if !db.is_finite() {
+        return Err(Error::new(op, "bad_range", format!("invalid db value: {raw}")));
+    }
+    Ok(db)
 }
 
 pub fn fade_pair(

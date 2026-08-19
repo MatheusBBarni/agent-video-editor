@@ -9,7 +9,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, fade_pair, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
+use op::{Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -153,6 +153,13 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Volume {
+        input: String,
+        #[arg(long, allow_hyphen_values = true)]
+        db: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Fade {
         input: String,
         #[arg(long = "in")]
@@ -258,6 +265,7 @@ fn usage_op() -> &'static str {
             "captions" => Some("captions"),
             "text" => Some("text"),
             "fade" => Some("fade"),
+            "volume" => Some("volume"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -460,6 +468,15 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             output: require_output("speed", output)?,
             factor,
+        }),
+        Command::Volume {
+            input,
+            db,
+            output,
+        } => Ok(Op::Volume {
+            input,
+            db: parse_db("volume", &db)?,
+            output: require_output("volume", output)?,
         }),
         Command::Fade {
             input,

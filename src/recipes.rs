@@ -335,6 +335,20 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn volume_argv(input: &str, output: &str, db: f64) -> Vec<String> {
+    vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-i".into(),
+        input.into(),
+        "-filter:a".into(),
+        format!("volume={db}dB"),
+        "-c:v".into(),
+        "copy".into(),
+        output.into(),
+    ]
+}
+
 pub fn fade_vf(fade_in: Option<f64>, fade_out: Option<f64>, duration_s: Option<f64>) -> String {
     let mut parts = Vec::new();
     if let Some(d) = fade_in {
