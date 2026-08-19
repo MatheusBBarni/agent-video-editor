@@ -12,9 +12,9 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every, parse_keep_ranges,
-    parse_resize_fit, parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output,
-    require_subtitle_file, text_span,
+    Op, TrimEnd, crop_insets, fade_pair, overlay_place, parse_at_list, parse_db, parse_every,
+    parse_keep_ranges, parse_resize_fit, parse_rotate_deg, parse_text_pos, replace_audio_choice,
+    require_output, require_subtitle_file, text_span,
 };
 
 #[derive(Parser)]
@@ -490,14 +490,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             x,
             y,
             output,
-        } => Ok(Op::Overlay {
-            input,
-            image,
-            output: require_output("overlay", output)?,
-            position,
-            x,
-            y,
-        }),
+        } => {
+            let (position, x, y) = overlay_place(position, x, y, "overlay")?;
+            Ok(Op::Overlay {
+                input,
+                image,
+                output: require_output("overlay", output)?,
+                position,
+                x,
+                y,
+            })
+        }
         Command::ReplaceAudio {
             input,
             mute,
