@@ -317,7 +317,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 .and_then(|e| e.to_str())
                 == Some("gif");
             if gif {
-                let palette = unique_palette_path();
+                let palette = unique_temp_file("palette", "png");
                 let (pass1, pass2) = recipes::gif_passes(input, output, &palette);
                 let pass1 = recipes::with_bin(pass1, bin);
                 let pass2 = recipes::with_bin(pass2, bin);
@@ -348,10 +348,10 @@ fn concat_can_copy(inputs: &[String], ffprobe_bin: &str) -> bool {
     shapes.is_empty() || (shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1]))
 }
 
-fn unique_palette_path() -> String {
+fn unique_temp_file(kind: &str, ext: &str) -> String {
     std::env::temp_dir()
         .join(format!(
-            "ave-palette-{}-{}.png",
+            "ave-{kind}-{}-{}.{ext}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -363,14 +363,7 @@ fn unique_palette_path() -> String {
 }
 
 fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
-    let path = std::env::temp_dir().join(format!(
-        "ave-concat-{}-{}.txt",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
+    let path = unique_temp_file("concat", "txt");
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let mut body = String::new();
     for input in inputs {
@@ -378,7 +371,7 @@ fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
         body.push_str(&format!("file '{escaped}'\n"));
     }
     std::fs::write(&path, body).map_err(|e| Error::new("concat", "concat_list", e.to_string()))?;
-    Ok(path.to_string_lossy().into_owned())
+    Ok(path)
 }
 
 fn same_file(a: &str, b: &str) -> bool {
