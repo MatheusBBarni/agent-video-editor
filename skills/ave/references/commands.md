@@ -146,6 +146,15 @@ ave rotate clip.mp4 --deg 90 -o turned.mp4
 
 `90`, `180`, or `270`. Re-encodes with `transpose`. Other degrees are `bad_range`.
 
+## crop
+
+```bash
+ave crop clip.mp4 --bottom 40 -o no-taskbar.mp4
+ave crop clip.mp4 --top 80 --bottom 40 -o no-chrome.mp4
+```
+
+Pixels in the coded frame. At least one of `--top` / `--bottom` / `--left` / `--right`. Hide a Windows taskbar with `--bottom 40`, then `resize` if you still need 1080p. This is not `resize --fit crop` (center-fill). A crop that empties the frame is `bad_range`. `--copy-only` fails.
+
 ## overlay
 
 ```bash

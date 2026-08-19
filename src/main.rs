@@ -11,9 +11,9 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, fade_pair, parse_at_list, parse_db, parse_every, parse_fit, parse_keep_ranges,
-    parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output, require_subtitle_file,
-    text_span,
+    Op, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every, parse_fit,
+    parse_keep_ranges, parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output,
+    require_subtitle_file, text_span,
 };
 
 #[derive(Parser)]
@@ -205,6 +205,19 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Crop {
+        input: String,
+        #[arg(long)]
+        top: Option<u32>,
+        #[arg(long)]
+        bottom: Option<u32>,
+        #[arg(long)]
+        left: Option<u32>,
+        #[arg(long)]
+        right: Option<u32>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
@@ -292,6 +305,7 @@ fn usage_op() -> &'static str {
             "fade" => Some("fade"),
             "volume" => Some("volume"),
             "rotate" => Some("rotate"),
+            "crop" => Some("crop"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -565,5 +579,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
                 output: require_output("frame", output)?,
             })
         }
+        Command::Crop {
+            input,
+            top,
+            bottom,
+            left,
+            right,
+            output,
+        } => Ok(Op::Crop {
+            input,
+            insets: crop_insets(top, bottom, left, right, "crop")?,
+            output: require_output("crop", output)?,
+        }),
     }
 }

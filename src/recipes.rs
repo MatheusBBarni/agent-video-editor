@@ -167,6 +167,24 @@ pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) ->
     ffmpeg
 }
 
+pub fn crop_filter(top: u32, bottom: u32, left: u32, right: u32) -> String {
+    format!(
+        "crop={}:{}:{}:{}",
+        crop_dim("iw", left, right),
+        crop_dim("ih", top, bottom),
+        left,
+        top
+    )
+}
+
+fn crop_dim(base: &str, a: u32, b: u32) -> String {
+    match (a, b) {
+        (0, 0) => base.to_string(),
+        (n, 0) | (0, n) => format!("{base}-{n}"),
+        (a, b) => format!("{base}-{a}-{b}"),
+    }
+}
+
 pub fn scale_pad(w: u32, h: u32) -> String {
     format!(
         "scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black"

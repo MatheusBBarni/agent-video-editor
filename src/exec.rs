@@ -420,6 +420,32 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             audio.unwrap_or(false),
             bin,
         )),
+        Op::Crop {
+            input,
+            insets,
+            output,
+        } => {
+            match probe::probed_size(&ctx.ffprobe, input) {
+                Some((width, height)) => {
+                    insets.validate_against(width, height, "crop")?;
+                }
+                None if ctx.dry_run => {}
+                None => {
+                    return Err(Error::new(
+                        "crop",
+                        "ffprobe_failed",
+                        format!("could not probe input: {input}"),
+                    ));
+                }
+            }
+            Ok(vf_job(
+                input,
+                output,
+                &insets.filter(),
+                audio.unwrap_or(false),
+                bin,
+            ))
+        }
         Op::Frame { input, at, output } => Ok(reencode_job(recipes::with_bin(
             recipes::frame_argv(input, at, output),
             bin,

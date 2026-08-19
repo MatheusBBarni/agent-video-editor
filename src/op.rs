@@ -184,6 +184,11 @@ pub enum Op {
         span: Option<(String, String)>,
         output: String,
     },
+    Crop {
+        input: String,
+        insets: CropInsets,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -211,6 +216,7 @@ impl Op {
             Self::Fade { .. } => "fade",
             Self::Volume { .. } => "volume",
             Self::Rotate { .. } => "rotate",
+            Self::Crop { .. } => "crop",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -235,7 +241,8 @@ impl Op {
             | Self::Text { output, .. }
             | Self::Fade { output, .. }
             | Self::Volume { output, .. }
-            | Self::Rotate { output, .. } => Some(output),
+            | Self::Rotate { output, .. }
+            | Self::Crop { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -256,6 +263,7 @@ impl Op {
             | Self::Fade { input, .. }
             | Self::Volume { input, .. }
             | Self::Rotate { input, .. }
+            | Self::Crop { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
@@ -479,6 +487,17 @@ impl Op {
                 srt: require_subtitle_file("run", req("srt")?)?,
                 output: req("output")?,
             }),
+            "crop" => Ok(Self::Crop {
+                input: req("input")?,
+                insets: crop_insets(
+                    json_u32(&step["top"]),
+                    json_u32(&step["bottom"]),
+                    json_u32(&step["left"]),
+                    json_u32(&step["right"]),
+                    "run",
+                )?,
+                output: req("output")?,
+            }),
             "frames" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
@@ -620,6 +639,10 @@ pub fn parse_keep_range(raw: &str, op: &'static str) -> Result<KeepRange, Error>
 fn parse_nonneg_finite(raw: &str) -> Option<f64> {
     let n: f64 = raw.parse().ok()?;
     (n.is_finite() && n >= 0.0).then_some(n)
+}
+
+fn json_u32(value: &serde_json::Value) -> Option<u32> {
+    value.as_u64().map(|n| n as u32)
 }
 
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
@@ -844,6 +867,51 @@ pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, E
             format!("captions require .srt or .vtt: {path}"),
         )),
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CropInsets {
+    pub top: u32,
+    pub bottom: u32,
+    pub left: u32,
+    pub right: u32,
+}
+
+impl CropInsets {
+    pub fn validate_against(&self, width: u32, height: u32, op: &'static str) -> Result<(), Error> {
+        if self.left.saturating_add(self.right) >= width
+            || self.top.saturating_add(self.bottom) >= height
+        {
+            return Err(Error::new(op, "bad_range", "crop would empty the frame"));
+        }
+        Ok(())
+    }
+
+    pub fn filter(self) -> String {
+        recipes::crop_filter(self.top, self.bottom, self.left, self.right)
+    }
+}
+
+pub fn crop_insets(
+    top: Option<u32>,
+    bottom: Option<u32>,
+    left: Option<u32>,
+    right: Option<u32>,
+    op: &'static str,
+) -> Result<CropInsets, Error> {
+    if top.is_none() && bottom.is_none() && left.is_none() && right.is_none() {
+        return Err(Error::new(
+            op,
+            "missing_field",
+            "crop requires --top, --bottom, --left, or --right",
+        ));
+    }
+    Ok(CropInsets {
+        top: top.unwrap_or(0),
+        bottom: bottom.unwrap_or(0),
+        left: left.unwrap_or(0),
+        right: right.unwrap_or(0),
+    })
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
