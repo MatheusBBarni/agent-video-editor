@@ -5,7 +5,8 @@ description: >
   cutting, concatenating, resizing for TikTok/YouTube/Instagram, changing speed,
   extracting or replacing audio, overlaying a logo, compressing, converting
   (including GIF), burning captions, drawing a title, fading, changing volume,
-  rotating, cropping edge strips (taskbar / browser chrome), grabbing a still, probing video info, or running a multi-step edit plan.
+  rotating, cropping edge strips (taskbar / browser chrome), detecting silence/black/scenes,
+  grabbing a still, probing video info, or running a multi-step edit plan.
   Prefer ave over raw ffmpeg. Do not invent ffmpeg flags.
 ---
 
@@ -35,7 +36,7 @@ ave install-skill --provider all --global
 2. Prefer the file the user named. Else the newest video in cwd.
 3. `ave info <file>` — recap duration, coded size, codecs, fps, audio, rotation, display size.
 4. Vague ask → ask what to change. Concrete ask → plan, then run.
-5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Hide a taskbar or browser chrome → `crop --bottom N` (or `--top` / `--left` / `--right`), not a free-form `crop=W:H:X:Y`. Then `resize` if you need a preset. Several other verbs → one `ave run` plan. Review many timestamps → `frames --at` / `--every`, not an `fps=` dump.
+5. Do not guess cut points. Call `ave detect --kind silence|black|scenes` first, then `cut-out` / `keep --ranges` / `trim`. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Hide a taskbar or browser chrome → `crop --bottom N` (or `--top` / `--left` / `--right`), not a free-form `crop=W:H:X:Y`. Then `resize` if you need a preset. Several other verbs → one `ave run` plan. Review many timestamps → `frames --at` / `--every`, not an `fps=` dump.
 6. `--dry-run` first when unsure. Then run for real.
 7. Reply with output path, duration, resolution, size from the JSON.
 
@@ -57,6 +58,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | Cmd | Args | Notes |
 |---|---|---|
 | `info` | `<in>` | duration, coded `width`/`height`, `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height` |
+| `detect` | `<in> --kind KIND` | `silence` / `black` / `scenes`. Read-only. No `-o`. JSON `segments` `{start_s,end_s,kind}`. Video-only + `silence` → `no_audio`. Not valid in `run` |
 | `doctor` | | ffmpeg/ffprobe versions |
 | `trim` | `<in> --from T --to T -o OUT` | or `--duration T` instead of `--to`. `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
 | `cut-out` | `<in> --from T --to T -o OUT` | delete `[from, to)`; keeps the rest and joins. Probes `end`. `--accurate` applies to both trims |
@@ -77,7 +79,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `volume` | `<in> --db N -o OUT` | signed dB (`-6`, `3`) |
 | `rotate` | `<in> --deg 90 -o OUT` | `90` `180` `270` only; re-encodes with `transpose` |
 | `crop` | `<in> --bottom N -o OUT` | or `--top` / `--left` / `--right` (pixels, coded frame). At least one edge. Empties the frame → `bad_range`. Not `resize --fit crop` |
-| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` / `frames` steps |
+| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` / `frames` / `detect` steps |
 
 Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
 
@@ -87,7 +89,7 @@ More examples: `references/commands.md`.
 
 ## JSON stdout
 
-Edit success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `info` is additive: those probe fields plus `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. `width`/`height` are coded samples; display size applies rotation. `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
+Edit success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `info` is additive: those probe fields plus `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. `width`/`height` are coded samples; display size applies rotation. `detect` is `ok`, `op`, `kind`, `input`, `segments`, `ffmpeg`. `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
 
 Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 
@@ -101,6 +103,6 @@ Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 ## Do not
 
 - Invent ffmpeg filter graphs.
-- Guess cut points or match boundaries.
+- Guess cut points or match boundaries. Call `detect` first.
 - Download stock media unless asked.
 - Use this for color grade, multi-cam, karaoke, or YouTube upload.

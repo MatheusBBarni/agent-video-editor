@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, cut-out, keep, concat, resize, crop, speed, extract/replace audio, overlay, compress, convert, frame, frames, captions, text, fade, volume, and rotate
+- Verbs for trim, cut-out, keep, concat, resize, crop, speed, extract/replace audio, overlay, compress, convert, frame, frames, captions, text, fade, volume, rotate, and detect (silence / black / scenes)
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -123,6 +123,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | Command | What it does |
 | --- | --- |
 | `info` | Probe duration, coded size, codecs, fps, audio, rotation, display size |
+| `detect` | Find silence, black frames, or scene cuts. `--kind silence` / `black` / `scenes`. Read-only |
 | `doctor` | Check ffmpeg / ffprobe |
 | `trim` | Cut a range with `--to` or `--duration`. `--accurate` re-encodes for frame-accurate in/out |
 | `cut-out` | Delete `[from, to)` and join what remains. Probes the file end |

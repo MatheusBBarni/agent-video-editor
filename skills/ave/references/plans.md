@@ -43,7 +43,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | `compress` | `input`, `output` | `crf`, `preset` |
 | `convert` | `input`, `output` | |
 
-`info`, `doctor`, and `frames` are CLI verbs only. They are not valid plan ops (`unsupported_in_run`).
+`info`, `doctor`, `frames`, and `detect` are CLI verbs only. They are not valid plan ops (`unsupported_in_run`).
 
 ## Delete a middle section
 
