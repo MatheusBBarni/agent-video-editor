@@ -59,3 +59,15 @@ fn frame_at_one_dry_run_extracts_single_still() {
     );
     assert!(!dir.path().join("poster.jpg").exists());
 }
+
+#[test]
+fn frame_without_output_fails_missing_output() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(&dir, &["frame", "in.mp4", "--at", "1"]);
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "frame");
+    assert_eq!(v["error"], "missing_output");
+}
