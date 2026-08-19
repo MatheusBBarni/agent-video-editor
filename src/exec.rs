@@ -91,9 +91,9 @@ fn execute_assuming(
             .passes
             .as_deref()
             .unwrap_or(std::slice::from_ref(&job.argv));
-        let result = cmds.iter().try_for_each(|cmd| {
-            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e))
-        });
+        let result = cmds
+            .iter()
+            .try_for_each(|cmd| run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e)));
         for path in &job.cleanup {
             let _ = std::fs::remove_file(path);
         }
@@ -192,20 +192,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 reencode: *accurate,
             })
         }
-        Op::Concat { inputs, output } => {
-            let copy = concat_can_copy(inputs, &ctx.ffprobe);
-            let list_path = if ctx.dry_run {
-                "concat-list.txt".to_string()
-            } else {
-                write_concat_list(inputs)?
-            };
-            Ok(Job {
-                argv: recipes::with_bin(recipes::concat_argv(&list_path, output, copy), bin),
-                passes: None,
-                cleanup: if ctx.dry_run { vec![] } else { vec![list_path] },
-                reencode: !copy,
-            })
-        }
+        Op::Concat { inputs, output } => concat_job(inputs, output, ctx, bin),
         Op::Resize { input, output, .. } => {
             let (w, h) = op.resize_size()?;
             Ok(Job {
@@ -381,12 +368,91 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
     }
 }
 
-fn concat_can_copy(inputs: &[String], ffprobe_bin: &str) -> bool {
-    let shapes: Vec<_> = inputs
+enum ConcatPlan {
+    Remux {
+        video_bsf: &'static str,
+        audio_bsf: Option<&'static str>,
+    },
+    Reencode,
+}
+
+fn concat_job(inputs: &[String], output: &str, ctx: &Ctx, bin: &str) -> Result<Job, Error> {
+    match concat_plan(inputs, &ctx.ffprobe) {
+        ConcatPlan::Remux {
+            video_bsf,
+            audio_bsf,
+        } => {
+            let ts_paths: Vec<String> = (0..inputs.len())
+                .map(|i| unique_temp_file(&format!("concat-{i}"), "ts"))
+                .collect();
+            let mut passes: Vec<Vec<String>> = inputs
+                .iter()
+                .zip(&ts_paths)
+                .map(|(input, ts)| {
+                    recipes::with_bin(
+                        recipes::concat_copy_to_mpegts_argv(input, ts, video_bsf),
+                        bin,
+                    )
+                })
+                .collect();
+            let list_path = unique_temp_file("concat", "txt");
+            if !ctx.dry_run {
+                write_concat_list_at(&list_path, &ts_paths)?;
+            }
+            let concat = recipes::with_bin(
+                recipes::concat_from_mpegts_argv(&list_path, output, audio_bsf),
+                bin,
+            );
+            passes.push(concat.clone());
+            let mut cleanup = ts_paths;
+            cleanup.push(list_path);
+            Ok(Job {
+                argv: concat,
+                passes: Some(passes),
+                cleanup,
+                reencode: false,
+            })
+        }
+        ConcatPlan::Reencode => {
+            let list_path = if ctx.dry_run {
+                "concat-list.txt".to_string()
+            } else {
+                write_concat_list(inputs)?
+            };
+            Ok(Job {
+                argv: recipes::with_bin(recipes::concat_argv(&list_path, output), bin),
+                passes: None,
+                cleanup: if ctx.dry_run { vec![] } else { vec![list_path] },
+                reencode: true,
+            })
+        }
+    }
+}
+
+fn concat_plan(inputs: &[String], ffprobe_bin: &str) -> ConcatPlan {
+    let infos: Vec<_> = inputs
         .iter()
-        .filter_map(|input| probe::probe_video(ffprobe_bin, input))
+        .filter_map(|input| {
+            let probe = probe::probe_json(ffprobe_bin, input)?;
+            let info = probe::media_info_from_probe(&probe);
+            info.has_video.then_some(info)
+        })
         .collect();
-    shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1])
+    if infos.len() != inputs.len() {
+        return ConcatPlan::Reencode;
+    }
+    if infos.windows(2).any(|w| !w[0].same_concat_shape(&w[1])) {
+        return ConcatPlan::Reencode;
+    }
+    let Some(video_bsf) = recipes::mpegts_video_bsf(&infos[0].video_codec) else {
+        return ConcatPlan::Reencode;
+    };
+    let audio_bsf =
+        (infos[0].has_audio && infos[0].audio_codec == "aac").then_some("aac_adtstoasc");
+    ConcatPlan::Remux {
+        video_bsf,
+        audio_bsf,
+    }
 }
 
 fn unique_temp_file(kind: &str, ext: &str) -> String {
@@ -405,14 +471,19 @@ fn unique_temp_file(kind: &str, ext: &str) -> String {
 
 fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
     let path = unique_temp_file("concat", "txt");
+    write_concat_list_at(&path, inputs)?;
+    Ok(path)
+}
+
+fn write_concat_list_at(path: &str, inputs: &[String]) -> Result<(), Error> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let mut body = String::new();
     for input in inputs {
         let escaped = cwd.join(input).to_string_lossy().replace('\'', r"'\''");
         body.push_str(&format!("file '{escaped}'\n"));
     }
-    std::fs::write(&path, body).map_err(|e| Error::new("concat", "concat_list", e.to_string()))?;
-    Ok(path)
+    std::fs::write(path, body).map_err(|e| Error::new("concat", "concat_list", e.to_string()))?;
+    Ok(())
 }
 
 fn same_file(a: &str, b: &str) -> bool {
