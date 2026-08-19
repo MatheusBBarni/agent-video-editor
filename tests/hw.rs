@@ -64,3 +64,37 @@ fn hw_nvenc_resize_dry_run_swaps_encoder() {
         "expected h264_nvenc: {argv:?}"
     );
 }
+
+#[test]
+fn hw_none_or_omitted_keeps_libx264() {
+    for args in [
+        [
+            "resize",
+            "in.mp4",
+            "--preset",
+            "square",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ]
+        .as_slice(),
+        [
+            "--hw",
+            "none",
+            "resize",
+            "in.mp4",
+            "--preset",
+            "square",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ]
+        .as_slice(),
+    ] {
+        let (_v, argv) = dry_run_argv(args);
+        assert!(
+            argv.iter().any(|a| a == "libx264"),
+            "expected libx264: {argv:?}"
+        );
+    }
+}
