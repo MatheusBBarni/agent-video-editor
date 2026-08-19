@@ -226,3 +226,34 @@ fn resize_tiktok_fit_crop_dry_run_fills_without_pad() {
     assert!(vf.contains("crop="), "crop fit should crop: {vf}");
     assert!(!vf.contains("pad="), "crop fit must not pad: {vf}");
 }
+
+#[test]
+fn resize_tiktok_fit_pad_dry_run_keeps_pad_recipe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "--fit",
+            "pad",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("1080:1920"),
+        "tiktok pad should target 1080x1920: {vf}"
+    );
+    assert!(
+        vf.contains("force_original_aspect_ratio=decrease"),
+        "pad should letterbox: {vf}"
+    );
+    assert!(vf.contains("pad="), "pad fit should pad: {vf}");
+    assert!(!vf.contains("crop="), "pad fit must not crop: {vf}");
+}
