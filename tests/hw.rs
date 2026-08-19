@@ -45,3 +45,22 @@ fn hw_videotoolbox_resize_dry_run_swaps_encoder() {
         "videotoolbox must not keep libx264: {argv:?}"
     );
 }
+
+#[test]
+fn hw_nvenc_resize_dry_run_swaps_encoder() {
+    let (_v, argv) = dry_run_argv(&[
+        "--hw",
+        "nvenc",
+        "resize",
+        "in.mp4",
+        "--preset",
+        "square",
+        "-o",
+        "out.mp4",
+        "--dry-run",
+    ]);
+    assert!(
+        argv.iter().any(|a| a == "h264_nvenc"),
+        "expected h264_nvenc: {argv:?}"
+    );
+}
