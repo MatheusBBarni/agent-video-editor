@@ -25,10 +25,16 @@ fn ci_workflow_requires_ffmpeg_on_linux_and_macos() {
         env!("CARGO_MANIFEST_DIR"),
         "/.github/workflows/ci.yml"
     ));
-    assert!(yml.contains("AVE_REQUIRE_FFMPEG"), "CI must set AVE_REQUIRE_FFMPEG");
+    assert!(
+        yml.contains("AVE_REQUIRE_FFMPEG"),
+        "CI must set AVE_REQUIRE_FFMPEG"
+    );
     assert!(yml.contains("ubuntu-latest"), "CI must run on Linux");
     assert!(yml.contains("macos-latest"), "CI must run on macOS");
-    assert!(yml.contains("cargo test --workspace"), "CI must run cargo test --workspace");
+    assert!(
+        yml.contains("cargo test --workspace"),
+        "CI must run cargo test --workspace"
+    );
     assert!(yml.contains("cargo fmt"), "CI must run rustfmt");
     assert!(yml.contains("clippy"), "CI must run clippy");
 }
