@@ -48,10 +48,7 @@ fn crop_without_edges_fails_missing_field() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
 
-    let (ok, v) = ave_json(
-        &dir,
-        &["crop", "in.mp4", "-o", "out.mp4", "--dry-run"],
-    );
+    let (ok, v) = ave_json(&dir, &["crop", "in.mp4", "-o", "out.mp4", "--dry-run"]);
     assert!(!ok);
     assert_eq!(v["ok"], false);
     assert_eq!(v["op"], "crop");
@@ -182,10 +179,7 @@ fn crop_unprobeable_real_run_fails_ffprobe() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
 
-    let (ok, v) = ave_json(
-        &dir,
-        &["crop", "in.mp4", "--bottom", "40", "-o", "out.mp4"],
-    );
+    let (ok, v) = ave_json(&dir, &["crop", "in.mp4", "--bottom", "40", "-o", "out.mp4"]);
     assert!(!ok);
     assert_eq!(v["ok"], false);
     assert_eq!(v["op"], "crop");

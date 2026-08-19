@@ -586,12 +586,10 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             left,
             right,
             output,
-        } => {
-            Ok(Op::Crop {
-                input,
-                insets: crop_insets(top, bottom, left, right, "crop")?,
-                output: require_output("crop", output)?,
-            })
-        }
+        } => Ok(Op::Crop {
+            input,
+            insets: crop_insets(top, bottom, left, right, "crop")?,
+            output: require_output("crop", output)?,
+        }),
     }
 }
