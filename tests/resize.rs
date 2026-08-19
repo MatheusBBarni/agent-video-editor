@@ -172,3 +172,57 @@ fn resize_without_dry_run_does_not_fake_success() {
     assert_eq!(v["ok"], false);
     assert!(!dir.path().join("out.mp4").exists());
 }
+
+fn resize_vf(dir: &tempfile::TempDir, args: &[&str]) -> String {
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(args)
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["op"], "resize");
+    let argv: Vec<&str> = v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    argv.windows(2)
+        .find(|w| w[0] == "-vf")
+        .map(|w| w[1].to_string())
+        .expect("expected -vf")
+}
+
+#[test]
+fn resize_tiktok_fit_crop_dry_run_fills_without_pad() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "--fit",
+            "crop",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("1080:1920"),
+        "tiktok crop should target 1080x1920: {vf}"
+    );
+    assert!(
+        vf.contains("force_original_aspect_ratio=increase"),
+        "crop should fill the frame: {vf}"
+    );
+    assert!(vf.contains("crop="), "crop fit should crop: {vf}");
+    assert!(!vf.contains("pad="), "crop fit must not pad: {vf}");
+}
