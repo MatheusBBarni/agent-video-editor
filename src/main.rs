@@ -8,6 +8,7 @@ mod overlay;
 mod probe;
 mod recipes;
 mod report;
+mod schema;
 mod skill;
 
 use clap::error::ErrorKind;
@@ -59,6 +60,7 @@ enum Command {
         accurate: bool,
     },
     Doctor,
+    Schema,
     Run {
         plan: String,
     },
@@ -285,6 +287,7 @@ fn main() {
     };
 
     match cli.command {
+        Command::Schema => schema::print(),
         Command::Run { plan } => run_cmd(&plan, &ctx, cli.human),
         Command::InstallSkill {
             provider,
@@ -306,6 +309,7 @@ fn usage_op() -> &'static str {
         .find_map(|arg| match arg.as_str() {
             "trim" => Some("trim"),
             "doctor" => Some("doctor"),
+            "schema" => Some("schema"),
             "run" => Some("run"),
             "info" => Some("info"),
             "detect" => Some("detect"),
@@ -398,7 +402,7 @@ struct PlanFile {
 
 fn to_op(command: Command) -> Result<Op, error::Error> {
     match command {
-        Command::Run { .. } | Command::InstallSkill { .. } => {
+        Command::Run { .. } | Command::InstallSkill { .. } | Command::Schema => {
             unreachable!("handled separately")
         }
         Command::Doctor => Ok(Op::Doctor),
