@@ -418,3 +418,40 @@ fn verbose_resize_dry_run_stays_json_on_stdout() {
     assert_eq!(v["ok"], true);
     assert_eq!(v["op"], "resize");
 }
+
+#[test]
+fn progress_resize_writes_jsonl_on_stderr() {
+    if !require_ffmpeg() {
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_clip(&dir.path().join("in.mp4"));
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "--progress",
+            "resize",
+            "in.mp4",
+            "--preset",
+            "square",
+            "-o",
+            "out.mp4",
+        ])
+        .assert()
+        .success();
+
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    let found = stderr.lines().any(|line| {
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            return false;
+        };
+        v.get("progress").is_some() || v.get("time_s").is_some()
+    });
+    assert!(
+        found,
+        "expected JSONL progress on stderr: {stderr}"
+    );
+}
