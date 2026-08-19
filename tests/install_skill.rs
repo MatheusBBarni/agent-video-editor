@@ -76,6 +76,10 @@ fn install_skill_without_provider_lists_choices() {
     assert!(ids.contains(&"agents"));
     assert!(ids.contains(&"pi"));
     assert!(ids.contains(&"cursor"));
+    assert!(ids.contains(&"codex"));
+    assert!(ids.contains(&"continue"));
+    assert!(ids.contains(&"windsurf"));
+    assert!(ids.contains(&"copilot"));
 }
 
 #[test]
