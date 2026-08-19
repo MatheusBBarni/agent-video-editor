@@ -9,6 +9,7 @@
 
 [![Rust](https://img.shields.io/badge/Rust-1.85+-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![ffmpeg](https://img.shields.io/badge/ffmpeg-required-007808?style=flat-square)](https://ffmpeg.org)
+[![crates.io](https://img.shields.io/crates/v/agent-video-editor?style=flat-square)](https://crates.io/crates/agent-video-editor)
 
 [Getting started](#getting-started) • [Usage](#usage) • [Commands](#commands) • [Agent skill](#agent-skill)
 
@@ -47,6 +48,13 @@ sudo apt install ffmpeg
 
 ### Install
 
+From crates.io:
+
+```bash
+cargo install agent-video-editor
+ave doctor
+```
+
 From this repo:
 
 ```bash
@@ -54,7 +62,7 @@ cargo install --path .
 ave doctor
 ```
 
-From Git (no crates.io):
+From Git:
 
 ```bash
 cargo install --git https://github.com/MatheusBBarni/agent-video-editor --locked
