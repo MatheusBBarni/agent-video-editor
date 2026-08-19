@@ -257,3 +257,33 @@ fn resize_tiktok_fit_pad_dry_run_keeps_pad_recipe() {
     assert!(vf.contains("pad="), "pad fit should pad: {vf}");
     assert!(!vf.contains("crop="), "pad fit must not crop: {vf}");
 }
+
+#[test]
+fn resize_fit_stretch_width_height_dry_run_scales_without_pad() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--fit",
+            "stretch",
+            "--width",
+            "640",
+            "--height",
+            "360",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(vf.contains("640:360"), "stretch should scale to 640x360: {vf}");
+    assert!(!vf.contains("pad="), "stretch must not pad: {vf}");
+    assert!(!vf.contains("crop="), "stretch must not crop: {vf}");
+    assert!(
+        !vf.contains("force_original_aspect_ratio"),
+        "stretch should not preserve aspect: {vf}"
+    );
+}
