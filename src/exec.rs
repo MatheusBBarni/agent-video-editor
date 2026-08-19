@@ -450,7 +450,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             recipes::frame_argv(input, at, output),
             bin,
         ))),
-        Op::Info { .. } | Op::Doctor | Op::Frames { .. } => {
+        Op::Info { .. } | Op::Doctor | Op::Frames { .. } | Op::Detect { .. } => {
             Err(Error::new(op.name(), "internal", "not a mutating op"))
         }
     }
