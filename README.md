@@ -127,7 +127,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | --- | --- |
 | `info` | Probe duration, size, codecs |
 | `doctor` | Check ffmpeg / ffprobe |
-| `trim` | Cut a range. `--accurate` re-encodes for frame-accurate in/out |
+| `trim` | Cut a range with `--to` or `--duration`. `--accurate` re-encodes for frame-accurate in/out |
 | `concat` | Join clips. Copies when they match; re-encodes when they don't |
 | `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. Pads, does not stretch |
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |

@@ -24,7 +24,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 
 | op | required | optional |
 |---|---|---|
-| `trim` | `input`, `from`, `to`, `output` | `accurate` |
+| `trim` | `input`, `from`, `output`, and exactly one of `to` or `duration` | `accurate` |
 | `concat` | `inputs` (≥2), `output` | |
 | `resize` | `input`, `output`, `preset` **or** `width`+`height` | |
 | `speed` | `input`, `output`, `factor` | |

@@ -12,10 +12,11 @@ ave info clip.mp4
 
 ```bash
 ave trim clip.mp4 --from 30 --to 105 -o keep.mp4
+ave trim clip.mp4 --from 30 --duration 5 -o keep.mp4
 ave trim clip.mp4 --from 00:00:30 --to 00:01:45 --accurate -o keep.mp4
 ```
 
-Default trim stream-copies (`-ss` / `-to` before `-i`, `-c copy`). `--accurate` keeps those as input options, adds `-accurate_seek`, and re-encodes (`libx264` / `aac`). Do not move `-ss` after `-i`.
+`--from` plus exactly one of `--to` or `--duration`. `--to` becomes ffmpeg `-to`; `--duration` becomes `-t`. Do not pass both (`conflicting_fields`). Default trim stream-copies (`-ss` and `-to`/`-t` before `-i`, `-c copy`). `--accurate` keeps those as input options, adds `-accurate_seek`, and re-encodes (`libx264` / `aac`). Do not move `-ss` after `-i`.
 
 ## concat
 
