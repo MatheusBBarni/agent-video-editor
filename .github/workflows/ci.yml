@@ -37,7 +37,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo timeout 120 apt-get update -o Acquire::Retries=3
-          sudo timeout 180 apt-get install -y --no-install-recommends ffmpeg
+          sudo timeout 600 apt-get install -y --no-install-recommends ffmpeg
       - name: Install ffmpeg (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg
