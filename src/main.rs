@@ -81,6 +81,10 @@ enum Command {
         #[arg(long)]
         preset: Option<String>,
         #[arg(long)]
+        width: Option<u32>,
+        #[arg(long)]
+        height: Option<u32>,
+        #[arg(long)]
         fit: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
@@ -345,14 +349,16 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         Command::Resize {
             input,
             preset,
+            width,
+            height,
             fit,
             output,
         } => Ok(Op::Resize {
             input,
             output: require_output("resize", output)?,
             preset,
-            width: None,
-            height: None,
+            width,
+            height,
             fit,
         }),
         Command::Convert { input, output } => Ok(Op::Convert {

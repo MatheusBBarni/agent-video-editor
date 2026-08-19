@@ -204,6 +204,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             let (w, h) = op.resize_size()?;
             let vf = match fit.as_deref() {
                 Some("crop") => recipes::scale_crop(w, h),
+                Some("stretch") => recipes::scale_stretch(w, h),
                 _ => recipes::scale_pad(w, h),
             };
             Ok(Job {
