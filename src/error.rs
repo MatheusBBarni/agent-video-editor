@@ -158,12 +158,21 @@ pub fn print_json(value: &impl Serialize) {
     println!("{}", serde_json::to_string(value).expect("json"));
 }
 
+pub fn wants_human() -> bool {
+    std::env::args().any(|a| a == "--human")
+}
+
 pub fn fail(err: Error) -> ! {
-    print_json(&FailEnvelope {
-        ok: false,
-        op: err.op,
-        error: err.code,
-        message: err.message,
-    });
+    if wants_human() {
+        println!("error: {}", err.code);
+        println!("message: {}", err.message);
+    } else {
+        print_json(&FailEnvelope {
+            ok: false,
+            op: err.op,
+            error: err.code,
+            message: err.message,
+        });
+    }
     std::process::exit(1);
 }

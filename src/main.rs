@@ -6,6 +6,7 @@ mod op;
 mod overlay;
 mod probe;
 mod recipes;
+mod report;
 mod skill;
 
 use clap::error::ErrorKind;
@@ -31,6 +32,8 @@ struct Cli {
     ffmpeg: Option<String>,
     #[arg(long, global = true)]
     ffprobe: Option<String>,
+    #[arg(long, global = true)]
+    human: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -275,7 +278,7 @@ fn main() {
     };
 
     match cli.command {
-        Command::Run { plan } => run_cmd(&plan, &ctx),
+        Command::Run { plan } => run_cmd(&plan, &ctx, cli.human),
         Command::InstallSkill {
             provider,
             dirs,
@@ -284,17 +287,7 @@ fn main() {
             skill::install(&dirs, &provider, global, cli.dry_run, cli.no_overwrite);
         }
         command => match to_op(command).and_then(|op| execute(&op, &ctx)) {
-            Ok(Outcome::Edit(env)) => print_json(&env),
-            Ok(Outcome::Info(env)) => print_json(&env),
-            Ok(Outcome::Frames(env)) => print_json(&env),
-            Ok(Outcome::Detect(env)) => print_json(&env),
-            Ok(Outcome::Doctor(env)) => {
-                let ok = env.ok;
-                print_json(&env);
-                if !ok {
-                    std::process::exit(1);
-                }
-            }
+            Ok(outcome) => report::print_outcome(cli.human, outcome),
             Err(err) => error::fail(err),
         },
     }
@@ -333,7 +326,7 @@ fn usage_op() -> &'static str {
         .unwrap_or("ave")
 }
 
-fn run_cmd(plan: &str, ctx: &Ctx) {
+fn run_cmd(plan: &str, ctx: &Ctx, human: bool) {
     let text = if plan == "-" {
         use std::io::Read;
         let mut buf = String::new();
@@ -361,25 +354,31 @@ fn run_cmd(plan: &str, ctx: &Ctx) {
     }
 
     match run_plan(&ops, ctx) {
-        Ok(steps) => print_json(&RunEnvelope {
-            ok: true,
-            op: "run",
-            steps,
-            failed_step: None,
-            error: None,
-            message: None,
-            written: None,
-        }),
-        Err((failed_step, err, steps, written)) => {
-            print_json(&RunEnvelope {
-                ok: false,
+        Ok(steps) => report::print_run(
+            human,
+            &RunEnvelope {
+                ok: true,
                 op: "run",
                 steps,
-                failed_step: Some(failed_step),
-                error: Some(err.code),
-                message: Some(err.message),
-                written: Some(written),
-            });
+                failed_step: None,
+                error: None,
+                message: None,
+                written: None,
+            },
+        ),
+        Err((failed_step, err, steps, written)) => {
+            report::print_run(
+                human,
+                &RunEnvelope {
+                    ok: false,
+                    op: "run",
+                    steps,
+                    failed_step: Some(failed_step),
+                    error: Some(err.code),
+                    message: Some(err.message),
+                    written: Some(written),
+                },
+            );
             std::process::exit(1);
         }
     }
