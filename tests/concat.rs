@@ -181,5 +181,26 @@ fn concat_mixed_rotation_dry_run_reencodes() {
         !argv.windows(2).any(|w| w == ["-c", "copy"]),
         "mixed rotation must re-encode: {argv:?}"
     );
-    assert!(argv.iter().any(|a| a == "libx264"), "expected libx264 in {argv:?}");
+    assert!(
+        argv.iter().any(|a| a == "libx264"),
+        "expected libx264 in {argv:?}"
+    );
+}
+
+#[test]
+fn concat_same_rotation_dry_run_still_copies() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_rotated_fixture(&dir.path().join("a.mp4"), "320x240");
+    write_rotated_fixture(&dir.path().join("b.mp4"), "320x240");
+
+    let argv = concat_dry_run_argv(&dir, "a.mp4", "b.mp4");
+    assert!(
+        argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "matching 90 degree clips must still copy: {argv:?}"
+    );
 }
