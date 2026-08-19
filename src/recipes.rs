@@ -73,18 +73,8 @@ pub fn concat_from_mpegts_argv(
     output: &str,
     audio_bsf: Option<&str>,
 ) -> Vec<String> {
-    let mut ffmpeg = vec![
-        "ffmpeg".into(),
-        "-y".into(),
-        "-f".into(),
-        "concat".into(),
-        "-safe".into(),
-        "0".into(),
-        "-i".into(),
-        list_path.into(),
-        "-c".into(),
-        "copy".into(),
-    ];
+    let mut ffmpeg = concat_demuxer_prefix(list_path);
+    ffmpeg.extend(["-c".into(), "copy".into()]);
     if let Some(bsf) = audio_bsf {
         ffmpeg.extend(["-bsf:a".into(), bsf.into()]);
     }
@@ -93,7 +83,14 @@ pub fn concat_from_mpegts_argv(
 }
 
 pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
-    let mut ffmpeg = vec![
+    let mut ffmpeg = concat_demuxer_prefix(list_path);
+    ffmpeg.extend(reencode_video_args(true));
+    ffmpeg.push(output.into());
+    ffmpeg
+}
+
+fn concat_demuxer_prefix(list_path: &str) -> Vec<String> {
+    vec![
         "ffmpeg".into(),
         "-y".into(),
         "-f".into(),
@@ -102,10 +99,7 @@ pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
         "0".into(),
         "-i".into(),
         list_path.into(),
-    ];
-    ffmpeg.extend(reencode_video_args(true));
-    ffmpeg.push(output.into());
-    ffmpeg
+    ]
 }
 
 pub fn resize_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {

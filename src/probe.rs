@@ -15,6 +15,16 @@ pub struct MediaInfo {
     pub display_height: u32,
 }
 
+impl MediaInfo {
+    pub fn same_concat_shape(&self, other: &Self) -> bool {
+        self.video_codec == other.video_codec
+            && self.width == other.width
+            && self.height == other.height
+            && self.fps == other.fps
+            && self.rotate_deg == other.rotate_deg
+    }
+}
+
 pub fn media_info_from_probe(probe: &serde_json::Value) -> MediaInfo {
     let video = first_stream(probe, "video");
     let audio = first_stream(probe, "audio");

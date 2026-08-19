@@ -382,16 +382,19 @@ fn concat_job(inputs: &[String], output: &str, ctx: &Ctx, bin: &str) -> Result<J
             video_bsf,
             audio_bsf,
         } => {
-            let mut ts_paths = Vec::new();
-            let mut passes = Vec::new();
-            for (i, input) in inputs.iter().enumerate() {
-                let ts = unique_temp_file(&format!("concat-{i}"), "ts");
-                passes.push(recipes::with_bin(
-                    recipes::concat_copy_to_mpegts_argv(input, &ts, video_bsf),
-                    bin,
-                ));
-                ts_paths.push(ts);
-            }
+            let ts_paths: Vec<String> = (0..inputs.len())
+                .map(|i| unique_temp_file(&format!("concat-{i}"), "ts"))
+                .collect();
+            let mut passes: Vec<Vec<String>> = inputs
+                .iter()
+                .zip(&ts_paths)
+                .map(|(input, ts)| {
+                    recipes::with_bin(
+                        recipes::concat_copy_to_mpegts_argv(input, ts, video_bsf),
+                        bin,
+                    )
+                })
+                .collect();
             let list_path = unique_temp_file("concat", "txt");
             if !ctx.dry_run {
                 write_concat_list_at(&list_path, &ts_paths)?;
@@ -438,17 +441,10 @@ fn concat_plan(inputs: &[String], ffprobe_bin: &str) -> ConcatPlan {
     if infos.len() != inputs.len() {
         return ConcatPlan::Reencode;
     }
-    let same_shape = infos.windows(2).all(|w| {
-        w[0].video_codec == w[1].video_codec
-            && w[0].width == w[1].width
-            && w[0].height == w[1].height
-            && w[0].fps == w[1].fps
-            && w[0].rotate_deg == w[1].rotate_deg
-    });
-    let Some(video_bsf) = same_shape
-        .then(|| recipes::mpegts_video_bsf(&infos[0].video_codec))
-        .flatten()
-    else {
+    if infos.windows(2).any(|w| !w[0].same_concat_shape(&w[1])) {
+        return ConcatPlan::Reencode;
+    }
+    let Some(video_bsf) = recipes::mpegts_video_bsf(&infos[0].video_codec) else {
         return ConcatPlan::Reencode;
     };
     let audio_bsf =
