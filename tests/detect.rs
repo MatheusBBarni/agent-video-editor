@@ -209,3 +209,75 @@ fn detect_scenes_dry_run_prints_scdet() {
         "argv must contain scdet: {argv:?}"
     );
 }
+
+fn write_black_then_white_fixture(path: &Path) {
+    ffmpeg(&[
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=320x240:d=1:r=30",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=white:s=320x240:d=1:r=30",
+        "-filter_complex",
+        "[0:v][1:v]concat=n=2:v=1:a=0",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        path.to_str().unwrap(),
+    ]);
+}
+
+#[test]
+fn detect_black_finds_known_gap() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_black_then_white_fixture(&dir.path().join("clip.mp4"));
+
+    let (ok, v) = ave_json(&dir, &["detect", "clip.mp4", "--kind", "black"]);
+    assert!(ok, "{v}");
+    assert_eq!(v["kind"], "black");
+    let segments = v["segments"].as_array().expect("segments");
+    let overlaps = segments.iter().any(|seg| {
+        let start = seg["start_s"].as_f64().expect("start_s");
+        let end = seg["end_s"].as_f64().expect("end_s");
+        assert!(start < end, "start_s must be < end_s: {seg}");
+        assert_eq!(seg["kind"], "black");
+        start < 1.0 && end > 0.0
+    });
+    assert!(overlaps, "expected a black segment overlapping 0s-1s: {v}");
+}
+
+#[test]
+fn detect_scenes_splits_known_cut() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_black_then_white_fixture(&dir.path().join("clip.mp4"));
+
+    let (ok, v) = ave_json(&dir, &["detect", "clip.mp4", "--kind", "scenes"]);
+    assert!(ok, "{v}");
+    assert_eq!(v["kind"], "scenes");
+    let segments = v["segments"].as_array().expect("segments");
+    assert!(
+        segments.len() >= 2,
+        "expected scene spans around the cut: {v}"
+    );
+    for seg in segments {
+        let start = seg["start_s"].as_f64().expect("start_s");
+        let end = seg["end_s"].as_f64().expect("end_s");
+        assert!(start < end, "start_s must be < end_s: {seg}");
+        assert_eq!(seg["kind"], "scenes");
+    }
+}

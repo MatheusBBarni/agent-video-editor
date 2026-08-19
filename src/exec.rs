@@ -1,6 +1,4 @@
-use crate::error::{
-    DetectEnvelope, DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope,
-};
+use crate::error::{DetectEnvelope, DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
 use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
