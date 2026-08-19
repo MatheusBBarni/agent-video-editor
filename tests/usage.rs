@@ -47,3 +47,31 @@ fn help_stays_human_and_succeeds() {
         "help should mention Usage or ave: {stdout}"
     );
 }
+
+#[test]
+fn ffmpeg_failure_message_is_short_and_not_a_banner() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["resize", "in.mp4", "--preset", "square", "-o", "out.mp4"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "ffmpeg_failed");
+    let message = v["message"].as_str().expect("message");
+    assert!(
+        message.len() <= 2048,
+        "ffmpeg message must be <= 2048 bytes, got {}",
+        message.len()
+    );
+    assert!(
+        !message.starts_with("ffmpeg version"),
+        "message must not be the ffmpeg banner: {message}"
+    );
+}
