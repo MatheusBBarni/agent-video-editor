@@ -139,22 +139,31 @@ impl Op {
             "trim" => {
                 let _ = req("input")?;
                 let _ = req("from")?;
-                if step["to"].as_str().is_none() && step["duration"].as_str().is_none() {
+                let to = step["to"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
+                let duration = step["duration"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string);
+                if to.is_none() && duration.is_none() {
                     return Err(Error::new(
                         "run",
                         "missing_field",
                         "trim requires to or duration",
                     ));
                 }
+                if to.is_some() && duration.is_some() {
+                    return Err(Error::new(
+                        "run",
+                        "conflicting_fields",
+                        "trim accepts only one of to or duration",
+                    ));
+                }
                 let _ = req("output")?;
                 Ok(Self::Trim {
                     input: req("input")?,
                     from: req("from")?,
-                    to: step["to"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
-                    duration: step["duration"]
-                        .as_str()
-                        .filter(|s| !s.is_empty())
-                        .map(str::to_string),
+                    to,
+                    duration,
                     output: req("output")?,
                     accurate: step["accurate"].as_bool().unwrap_or(false),
                 })
