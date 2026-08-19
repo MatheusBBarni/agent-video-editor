@@ -116,3 +116,38 @@ fn crop_refuses_in_place_and_missing_output() {
     assert_eq!(inplace["error"], "in_place");
     assert_eq!(fs::read(dir.path().join("in.mp4")).unwrap(), b"original");
 }
+
+#[test]
+fn run_crop_dry_run_accepts_bottom() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"steps":[{"op":"crop","input":"in.mp4","bottom":40,"output":"out.mp4"}]}"#,
+    )
+    .unwrap();
+
+    let (ok, v) = ave_json(&dir, &["run", "plan.json", "--dry-run"]);
+    assert!(ok, "{v}");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["steps"][0]["op"], "crop");
+    assert_eq!(v["steps"][0]["ok"], true);
+    let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    let vf = argv
+        .windows(2)
+        .find(|w| w[0] == "-vf")
+        .map(|w| w[1])
+        .expect("expected -vf");
+    assert!(vf.contains("crop="), "run crop must use crop=: {vf}");
+    assert!(
+        vf.contains("ih-40"),
+        "run crop bottom 40 must lock height to ih-40: {vf}"
+    );
+    assert!(!vf.contains("pad="), "run crop must not pad: {vf}");
+    assert!(!dir.path().join("out.mp4").exists());
+}
