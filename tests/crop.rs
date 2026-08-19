@@ -89,3 +89,30 @@ fn crop_bottom_larger_than_height_fails_bad_range() {
     assert!(v.get("ffmpeg").is_none());
     assert!(!dir.path().join("out.mp4").exists());
 }
+
+#[test]
+fn crop_refuses_in_place_and_missing_output() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"original").unwrap();
+
+    let (ok, missing) = ave_json(&dir, &["crop", "in.mp4", "--bottom", "40"]);
+    assert!(!ok);
+    assert_eq!(missing["error"], "missing_output");
+    assert_eq!(missing["op"], "crop");
+
+    let (ok, inplace) = ave_json(
+        &dir,
+        &[
+            "crop",
+            "in.mp4",
+            "--bottom",
+            "40",
+            "-o",
+            "in.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok);
+    assert_eq!(inplace["error"], "in_place");
+    assert_eq!(fs::read(dir.path().join("in.mp4")).unwrap(), b"original");
+}
