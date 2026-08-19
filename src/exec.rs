@@ -321,25 +321,11 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             input,
             image,
             output,
-            position,
-            x,
-            y,
+            at,
             opacity,
             span,
         } => {
-            let place = match (x, y) {
-                (Some(x), Some(y)) => recipes::overlay_xy(*x, *y),
-                _ => recipes::overlay_expr(position.as_deref().unwrap_or("top-right"))
-                    .ok_or_else(|| {
-                        Error::new(
-                            "overlay",
-                            "unknown_position",
-                            format!("unknown position: {}", position.clone().unwrap_or_default()),
-                        )
-                    })?
-                    .to_string(),
-            };
-            let expr = recipes::overlay_filter(&place, *opacity, span.as_ref());
+            let expr = at.filter(*opacity, span.as_ref())?;
             Ok(reencode_job(recipes::with_bin(
                 recipes::overlay_argv(input, image, output, &expr, audio.unwrap_or(false)),
                 bin,

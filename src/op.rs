@@ -1,5 +1,5 @@
 use crate::error::Error;
-pub use crate::overlay::{overlay_place, parse_opacity};
+pub use crate::overlay::{OverlayAt, parse_opacity};
 use crate::recipes;
 
 #[derive(Debug, Clone)]
@@ -133,9 +133,7 @@ pub enum Op {
         input: String,
         image: String,
         output: String,
-        position: Option<String>,
-        x: Option<i32>,
-        y: Option<i32>,
+        at: OverlayAt,
         opacity: Option<f64>,
         span: Option<(String, String)>,
     },
@@ -433,28 +431,23 @@ impl Op {
                     mix,
                 })
             }
-            "overlay" => {
-                let place = overlay_place(
+            "overlay" => Ok(Self::Overlay {
+                input: req("input")?,
+                image: req("image")?,
+                output: req("output")?,
+                at: OverlayAt::parse(
                     step["position"].as_str().map(str::to_string),
                     json_i32(&step["x"]),
                     json_i32(&step["y"]),
                     "run",
-                )?;
-                Ok(Self::Overlay {
-                    input: req("input")?,
-                    image: req("image")?,
-                    output: req("output")?,
-                    position: place.position,
-                    x: place.x,
-                    y: place.y,
-                    opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
-                    span: text_span(
-                        json_string_or_number(&step["from"]),
-                        json_string_or_number(&step["to"]),
-                        "run",
-                    )?,
-                })
-            }
+                )?,
+                opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
+                span: text_span(
+                    json_string_or_number(&step["from"]),
+                    json_string_or_number(&step["to"]),
+                    "run",
+                )?,
+            }),
             "compress" => Ok(Self::Compress {
                 input: req("input")?,
                 output: req("output")?,
@@ -589,7 +582,11 @@ fn resize_size_pair(
         )),
         _ => Err(Error::new(
             op,
-            "missing_preset",
+            if op == "run" {
+                "missing_field"
+            } else {
+                "missing_preset"
+            },
             "resize requires --preset or --width and --height",
         )),
     }
