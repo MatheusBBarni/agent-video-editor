@@ -322,17 +322,10 @@ pub fn compress_argv(
     preset: &str,
     has_audio: bool,
 ) -> Vec<String> {
-    let mut ffmpeg = vec![
-        "ffmpeg".into(),
-        "-y".into(),
-        "-i".into(),
-        input.into(),
-        "-crf".into(),
-        crf.to_string(),
-        "-preset".into(),
-        preset.into(),
-    ];
+    let mut ffmpeg = vec!["ffmpeg".into(), "-y".into(), "-i".into(), input.into()];
+    ffmpeg.extend(reencode_video_args(crf, preset));
     push_audio_copy(&mut ffmpeg, has_audio);
+    push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
 }
