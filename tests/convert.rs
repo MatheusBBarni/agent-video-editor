@@ -26,9 +26,44 @@ fn convert_gif_dry_run_is_two_pass_and_leaves_no_palette() {
         stdout.contains("paletteuse"),
         "gif convert must plan paletteuse: {stdout}"
     );
+
+    let tokens = argv_tokens(&v);
     assert!(
-        !dir.path().join("palette.png").exists(),
-        "dry-run must not leave palette.png"
+        tokens.iter().all(|t| t != "palette.png"),
+        "ffmpeg/passes must not use a bare palette.png: {tokens:?}"
     );
-    assert!(!dir.path().join("out.gif").exists());
+    let palette = tokens
+        .iter()
+        .find(|t| t.contains("ave-palette-") || t.ends_with("palette.png"))
+        .expect("passes must include a palette path");
+    let tmp = std::env::temp_dir();
+    assert!(
+        palette.contains("ave-palette-") || std::path::Path::new(palette).starts_with(&tmp),
+        "palette path must be temp-shaped: {palette}"
+    );
+
+    let leftover: Vec<_> = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(
+        leftover,
+        [std::ffi::OsString::from("in.mp4")],
+        "dry-run must not write palette or output: {leftover:?}"
+    );
+}
+
+fn argv_tokens(v: &Value) -> Vec<String> {
+    let mut tokens = Vec::new();
+    if let Some(ffmpeg) = v["ffmpeg"].as_array() {
+        tokens.extend(ffmpeg.iter().filter_map(|x| x.as_str().map(str::to_string)));
+    }
+    if let Some(passes) = v["passes"].as_array() {
+        for pass in passes {
+            if let Some(argv) = pass.as_array() {
+                tokens.extend(argv.iter().filter_map(|x| x.as_str().map(str::to_string)));
+            }
+        }
+    }
+    tokens
 }
