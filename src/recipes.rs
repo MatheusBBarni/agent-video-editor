@@ -7,16 +7,12 @@ pub fn with_bin(mut argv: Vec<String>, bin: &str) -> Vec<String> {
 
 pub fn trim_argv(
     from: &str,
-    to: Option<&str>,
-    duration: Option<&str>,
+    end_flag: &str,
+    end_val: &str,
     input: &str,
     output: &str,
     accurate: bool,
 ) -> Vec<String> {
-    let (end_flag, end_val) = match duration {
-        Some(d) => ("-t", d),
-        None => ("-to", to.unwrap_or("")),
-    };
     if accurate {
         let mut ffmpeg = vec![
             "ffmpeg".into(),

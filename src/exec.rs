@@ -169,26 +169,21 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
         Op::Trim {
             input,
             from,
-            to,
-            duration,
+            end,
             output,
             accurate,
-        } => Ok(Job {
-            argv: recipes::with_bin(
-                recipes::trim_argv(
-                    from,
-                    to.as_deref(),
-                    duration.as_deref(),
-                    input,
-                    output,
-                    *accurate,
+        } => {
+            let (end_flag, end_val) = end.ffmpeg_flag();
+            Ok(Job {
+                argv: recipes::with_bin(
+                    recipes::trim_argv(from, end_flag, end_val, input, output, *accurate),
+                    bin,
                 ),
-                bin,
-            ),
-            passes: None,
-            cleanup: vec![],
-            reencode: *accurate,
-        }),
+                passes: None,
+                cleanup: vec![],
+                reencode: *accurate,
+            })
+        }
         Op::Concat { inputs, output } => {
             let copy = concat_can_copy(inputs, &ctx.ffprobe);
             let list_path = if ctx.dry_run {

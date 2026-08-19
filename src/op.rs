@@ -2,12 +2,47 @@ use crate::error::Error;
 use crate::recipes;
 
 #[derive(Debug, Clone)]
+pub enum TrimEnd {
+    To(String),
+    Duration(String),
+}
+
+impl TrimEnd {
+    pub fn exclusive(
+        to: Option<String>,
+        duration: Option<String>,
+        op: &'static str,
+    ) -> Result<Self, Error> {
+        match (to, duration) {
+            (Some(to), None) => Ok(Self::To(to)),
+            (None, Some(duration)) => Ok(Self::Duration(duration)),
+            (Some(_), Some(_)) => Err(Error::new(
+                op,
+                "conflicting_fields",
+                "trim accepts only one of to or duration",
+            )),
+            (None, None) => Err(Error::new(
+                op,
+                "missing_field",
+                "trim requires to or duration",
+            )),
+        }
+    }
+
+    pub fn ffmpeg_flag(&self) -> (&'static str, &str) {
+        match self {
+            Self::To(value) => ("-to", value),
+            Self::Duration(value) => ("-t", value),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Op {
     Trim {
         input: String,
         from: String,
-        to: Option<String>,
-        duration: Option<String>,
+        end: TrimEnd,
         output: String,
         accurate: bool,
     },
@@ -139,28 +174,17 @@ impl Op {
             "trim" => {
                 let _ = req("input")?;
                 let _ = req("from")?;
-                let to = step["to"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
+                let to = step["to"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string);
                 let duration = json_string_or_number(&step["duration"]);
-                if to.is_none() && duration.is_none() {
-                    return Err(Error::new(
-                        "run",
-                        "missing_field",
-                        "trim requires to or duration",
-                    ));
-                }
-                if to.is_some() && duration.is_some() {
-                    return Err(Error::new(
-                        "run",
-                        "conflicting_fields",
-                        "trim accepts only one of to or duration",
-                    ));
-                }
+                let end = TrimEnd::exclusive(to, duration, "run")?;
                 let _ = req("output")?;
                 Ok(Self::Trim {
                     input: req("input")?,
                     from: req("from")?,
-                    to,
-                    duration,
+                    end,
                     output: req("output")?,
                     accurate: step["accurate"].as_bool().unwrap_or(false),
                 })
