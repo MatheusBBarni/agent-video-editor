@@ -139,3 +139,19 @@ fn detect_silence_on_video_only_fails_no_audio() {
     assert_eq!(v["op"], "detect");
     assert_eq!(v["error"], "no_audio");
 }
+
+#[test]
+fn detect_unsupported_in_run() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("clip.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"steps":[{"op":"detect","input":"clip.mp4","kind":"silence"}]}"#,
+    )
+    .unwrap();
+
+    let (ok, v) = ave_json(&dir, &["run", "plan.json", "--dry-run"]);
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "unsupported_in_run");
+}
