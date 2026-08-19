@@ -45,7 +45,7 @@ ave install-skill --provider all --global
 - Never delete inputs. Existing **outputs** are overwritten unless `--no-overwrite`.
 - `--dry-run` writes nothing. `--copy-only` fails if a re-encode would happen.
 - Paths are cwd-relative or absolute.
-- Always pass flags the CLI documents. Clap usage errors go to stderr (not JSON).
+- Always pass flags the CLI documents. Unknown flags and clap usage errors are JSON on stdout (`error: "usage"`). `--help` stays human.
 
 ## Commands
 

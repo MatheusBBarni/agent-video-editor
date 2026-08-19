@@ -5,8 +5,9 @@ mod probe;
 mod recipes;
 mod skill;
 
+use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
-use error::{RunEnvelope, print_json};
+use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{Op, TrimEnd, replace_audio_choice, require_output};
 
@@ -130,7 +131,16 @@ enum Command {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(err) => match err.kind() {
+            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
+                let _ = err.print();
+                std::process::exit(err.exit_code());
+            }
+            _ => error::fail(Error::new(usage_op(), "usage", err.to_string())),
+        },
+    };
     let ctx = Ctx {
         dry_run: cli.dry_run,
         no_overwrite: cli.no_overwrite,
@@ -161,6 +171,28 @@ fn main() {
             Err(err) => error::fail(err),
         },
     }
+}
+
+fn usage_op() -> &'static str {
+    std::env::args()
+        .skip(1)
+        .find_map(|arg| match arg.as_str() {
+            "trim" => Some("trim"),
+            "doctor" => Some("doctor"),
+            "run" => Some("run"),
+            "info" => Some("info"),
+            "concat" => Some("concat"),
+            "resize" => Some("resize"),
+            "convert" => Some("convert"),
+            "compress" => Some("compress"),
+            "overlay" => Some("overlay"),
+            "replace-audio" => Some("replace-audio"),
+            "extract-audio" => Some("extract-audio"),
+            "speed" => Some("speed"),
+            "install-skill" => Some("install-skill"),
+            _ => None,
+        })
+        .unwrap_or("ave")
 }
 
 fn run_cmd(plan: &str, ctx: &Ctx) {
