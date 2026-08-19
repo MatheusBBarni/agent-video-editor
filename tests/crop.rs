@@ -42,3 +42,20 @@ fn crop_bottom_40_dry_run_uses_locked_crop_filter() {
     assert!(!vf.contains("pad="), "crop must not pad: {vf}");
     assert!(!dir.path().join("out.mp4").exists());
 }
+
+#[test]
+fn crop_without_edges_fails_missing_field() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &["crop", "in.mp4", "-o", "out.mp4", "--dry-run"],
+    );
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "crop");
+    assert_eq!(v["error"], "missing_field");
+    assert!(v.get("ffmpeg").is_none());
+    assert!(!dir.path().join("out.mp4").exists());
+}
