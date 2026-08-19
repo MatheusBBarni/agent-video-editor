@@ -391,3 +391,30 @@ fn resize_preset_stretch_dry_run_scales_without_pad() {
         "--stretch should not preserve aspect: {vf}"
     );
 }
+
+#[test]
+fn verbose_resize_dry_run_stays_json_on_stdout() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "--verbose",
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must stay JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["op"], "resize");
+}
