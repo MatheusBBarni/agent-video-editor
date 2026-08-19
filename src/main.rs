@@ -8,7 +8,7 @@ mod skill;
 use clap::{Parser, Subcommand};
 use error::{RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, require_output};
+use op::{Op, TrimEnd, replace_audio_choice, require_output};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -234,13 +234,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             duration,
             output,
             accurate,
-        } => Ok(Op::Trim {
-            input,
-            from,
-            end: TrimEnd::exclusive(to, duration, "trim")?,
-            output: require_output("trim", output)?,
-            accurate,
-        }),
+        } => {
+            let end = TrimEnd::exclusive(to, duration, "trim")?;
+            end.validate_against(&from, "trim")?;
+            Ok(Op::Trim {
+                input,
+                from,
+                end,
+                output: require_output("trim", output)?,
+                accurate,
+            })
+        }
         Command::Concat { inputs, output } => {
             if inputs.len() < 2 {
                 return Err(error::Error::new(
@@ -297,13 +301,16 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             audio,
             mix,
             output,
-        } => Ok(Op::ReplaceAudio {
-            input,
-            output: require_output("replace-audio", output)?,
-            mute,
-            audio,
-            mix,
-        }),
+        } => {
+            let (mute, audio, mix) = replace_audio_choice(mute, audio, mix, "replace-audio")?;
+            Ok(Op::ReplaceAudio {
+                input,
+                output: require_output("replace-audio", output)?,
+                mute,
+                audio,
+                mix,
+            })
+        }
         Command::ExtractAudio {
             input,
             output,

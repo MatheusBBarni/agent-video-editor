@@ -31,6 +31,38 @@ impl TrimEnd {
         }
     }
 
+    pub fn validate_against(&self, from: &str, op: &'static str) -> Result<(), Error> {
+        let from_s = parse_timestamp(from)
+            .ok_or_else(|| Error::new(op, "bad_timestamp", format!("invalid timestamp: {from}")))?;
+        match self {
+            Self::To(to) => {
+                let to_s = parse_timestamp(to).ok_or_else(|| {
+                    Error::new(op, "bad_timestamp", format!("invalid timestamp: {to}"))
+                })?;
+                if from_s >= to_s {
+                    return Err(Error::new(op, "bad_range", "from must be less than to"));
+                }
+            }
+            Self::Duration(duration) => {
+                let duration_s = parse_timestamp(duration).ok_or_else(|| {
+                    Error::new(
+                        op,
+                        "bad_timestamp",
+                        format!("invalid timestamp: {duration}"),
+                    )
+                })?;
+                if duration_s <= 0.0 {
+                    return Err(Error::new(
+                        op,
+                        "bad_range",
+                        "duration must be greater than 0",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn ffmpeg_flag(&self) -> (&'static str, &str) {
         match self {
             Self::To(value) => ("-to", value),
@@ -173,17 +205,22 @@ impl Op {
                 })
         };
         match op {
-            "trim" => Ok(Self::Trim {
-                input: req("input")?,
-                from: req("from")?,
-                end: TrimEnd::exclusive(
+            "trim" => {
+                let from = req("from")?;
+                let end = TrimEnd::exclusive(
                     json_string_or_number(&step["to"]),
                     json_string_or_number(&step["duration"]),
                     "run",
-                )?,
-                output: req("output")?,
-                accurate: step["accurate"].as_bool().unwrap_or(false),
-            }),
+                )?;
+                end.validate_against(&from, "run")?;
+                Ok(Self::Trim {
+                    input: req("input")?,
+                    from,
+                    end,
+                    output: req("output")?,
+                    accurate: step["accurate"].as_bool().unwrap_or(false),
+                })
+            }
             "concat" => {
                 let inputs = step["inputs"]
                     .as_array()
@@ -239,16 +276,12 @@ impl Op {
                 format: step["format"].as_str().map(str::to_string),
             }),
             "replace-audio" => {
-                let mute = step["mute"].as_bool().unwrap_or(false);
-                let audio = step["audio"].as_str().map(str::to_string);
-                let mix = step["mix"].as_str().map(str::to_string);
-                if !mute && audio.is_none() && mix.is_none() {
-                    return Err(Error::new(
-                        "run",
-                        "missing_audio",
-                        "replace-audio requires mute, audio, or mix",
-                    ));
-                }
+                let (mute, audio, mix) = replace_audio_choice(
+                    step["mute"].as_bool().unwrap_or(false),
+                    step["audio"].as_str().map(str::to_string),
+                    step["mix"].as_str().map(str::to_string),
+                    "run",
+                )?;
                 Ok(Self::ReplaceAudio {
                     input: req("input")?,
                     output: req("output")?,
@@ -273,10 +306,11 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
-            "info" => Ok(Self::Info {
-                input: req("input")?,
-            }),
-            "doctor" => Ok(Self::Doctor),
+            "info" | "doctor" => Err(Error::new(
+                "run",
+                "unsupported_in_run",
+                format!("{op} is not valid inside ave run"),
+            )),
             "" => Err(Error::new("run", "unknown_op", "step missing op")),
             other => Err(Error::new(
                 "run",
@@ -316,11 +350,64 @@ impl Op {
     }
 }
 
+pub fn parse_timestamp(raw: &str) -> Option<f64> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    if !raw.contains(':') {
+        return parse_nonneg_finite(raw);
+    }
+    let parts: Vec<&str> = raw.split(':').collect();
+    match parts.as_slice() {
+        [minutes, seconds] => {
+            let minutes: u64 = minutes.parse().ok()?;
+            let seconds = parse_nonneg_finite(seconds)?;
+            (seconds < 60.0).then_some(minutes as f64 * 60.0 + seconds)
+        }
+        [hours, minutes, seconds] => {
+            let hours: u64 = hours.parse().ok()?;
+            let minutes: u64 = minutes.parse().ok()?;
+            let seconds = parse_nonneg_finite(seconds)?;
+            (minutes < 60 && seconds < 60.0)
+                .then_some(hours as f64 * 3600.0 + minutes as f64 * 60.0 + seconds)
+        }
+        _ => None,
+    }
+}
+
+fn parse_nonneg_finite(raw: &str) -> Option<f64> {
+    let n: f64 = raw.parse().ok()?;
+    (n.is_finite() && n >= 0.0).then_some(n)
+}
+
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
     if let Some(s) = value.as_str().filter(|s| !s.is_empty()) {
         return Some(s.to_string());
     }
     value.as_number().map(ToString::to_string)
+}
+
+pub fn replace_audio_choice(
+    mute: bool,
+    audio: Option<String>,
+    mix: Option<String>,
+    op: &'static str,
+) -> Result<(bool, Option<String>, Option<String>), Error> {
+    let count = usize::from(mute) + usize::from(audio.is_some()) + usize::from(mix.is_some());
+    match count {
+        0 => Err(Error::new(
+            op,
+            "missing_audio",
+            "replace-audio requires mute, audio, or mix",
+        )),
+        1 => Ok((mute, audio, mix)),
+        _ => Err(Error::new(
+            op,
+            "conflicting_flags",
+            "replace-audio accepts only one of mute, audio, or mix",
+        )),
+    }
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {

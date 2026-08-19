@@ -66,9 +66,9 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `overlay` | `<in> --image IMG -o OUT` | `--position` `top-right` (default) `top-left` `bottom-left` `bottom-right` `center` |
 | `compress` | `<in> -o OUT` | `--crf 23` `--preset medium` |
 | `convert` | `<in> -o OUT` | format from `-o` ext; `.gif` = two-pass |
-| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md` |
+| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` steps |
 
-Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`).
+Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
 
 Presets pad, they do not stretch: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080.
 

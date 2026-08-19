@@ -417,12 +417,39 @@ fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
 
 fn same_file(a: &str, b: &str) -> bool {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let pa = cwd.join(a);
-    let pb = cwd.join(b);
-    match (pa.canonicalize(), pb.canonicalize()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => pa == pb,
+    resolve_path(&cwd, a) == resolve_path(&cwd, b)
+}
+
+fn resolve_path(cwd: &std::path::Path, path: &str) -> std::path::PathBuf {
+    let joined = cwd.join(path);
+    if let Ok(canon) = joined.canonicalize() {
+        return canon;
     }
+    let normalized = normalize_lexically(&joined);
+    if let Ok(canon) = normalized.canonicalize() {
+        return canon;
+    }
+    match (normalized.parent(), normalized.file_name()) {
+        (Some(parent), Some(name)) => parent
+            .canonicalize()
+            .unwrap_or_else(|_| parent.to_path_buf())
+            .join(name),
+        _ => normalized,
+    }
+}
+
+fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
+    let mut out = std::path::PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
