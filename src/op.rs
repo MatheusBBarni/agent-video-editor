@@ -273,10 +273,11 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
-            "info" => Ok(Self::Info {
-                input: req("input")?,
-            }),
-            "doctor" => Ok(Self::Doctor),
+            "info" | "doctor" => Err(Error::new(
+                "run",
+                "unsupported_in_run",
+                format!("{op} is not valid inside ave run"),
+            )),
             "" => Err(Error::new("run", "unknown_op", "step missing op")),
             other => Err(Error::new(
                 "run",
