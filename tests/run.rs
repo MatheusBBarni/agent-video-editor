@@ -163,10 +163,36 @@ fn run_dry_run_concat_of_future_outputs_reencodes() {
         !argv.windows(2).any(|w| w == ["-c", "copy"]),
         "unprobeable plan concat must re-encode: {argv:?}"
     );
-    assert!(
-        argv.contains(&"libx264"),
-        "expected libx264 in {argv:?}"
-    );
+    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
+}
+
+#[test]
+fn run_dry_run_concat_of_future_outputs_copy_only_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {"op": "trim", "input": "in.mp4", "from": "0", "to": "10", "output": "a.mp4"},
+            {"op": "trim", "input": "in.mp4", "from": "20", "to": "30", "output": "b.mp4"},
+            {"op": "concat", "inputs": ["a.mp4", "b.mp4"], "output": "out.mp4"}
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run", "--copy-only"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "copy_only");
 }
 
 #[test]
