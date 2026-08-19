@@ -186,10 +186,7 @@ pub enum Op {
     },
     Crop {
         input: String,
-        top: u32,
-        bottom: u32,
-        left: u32,
-        right: u32,
+        insets: CropInsets,
         output: String,
     },
     Info {
@@ -490,23 +487,17 @@ impl Op {
                 srt: require_subtitle_file("run", req("srt")?)?,
                 output: req("output")?,
             }),
-            "crop" => {
-                let (top, bottom, left, right) = crop_insets(
+            "crop" => Ok(Self::Crop {
+                input: req("input")?,
+                insets: crop_insets(
                     json_u32(&step["top"]),
                     json_u32(&step["bottom"]),
                     json_u32(&step["left"]),
                     json_u32(&step["right"]),
                     "run",
-                )?;
-                Ok(Self::Crop {
-                    input: req("input")?,
-                    top,
-                    bottom,
-                    left,
-                    right,
-                    output: req("output")?,
-                })
-            }
+                )?,
+                output: req("output")?,
+            }),
             "frames" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
@@ -878,13 +869,36 @@ pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, E
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct CropInsets {
+    pub top: u32,
+    pub bottom: u32,
+    pub left: u32,
+    pub right: u32,
+}
+
+impl CropInsets {
+    pub fn validate_against(&self, width: u32, height: u32, op: &'static str) -> Result<(), Error> {
+        if self.left.saturating_add(self.right) >= width
+            || self.top.saturating_add(self.bottom) >= height
+        {
+            return Err(Error::new(op, "bad_range", "crop would empty the frame"));
+        }
+        Ok(())
+    }
+
+    pub fn filter(self) -> String {
+        recipes::crop_filter(self.top, self.bottom, self.left, self.right)
+    }
+}
+
 pub fn crop_insets(
     top: Option<u32>,
     bottom: Option<u32>,
     left: Option<u32>,
     right: Option<u32>,
     op: &'static str,
-) -> Result<(u32, u32, u32, u32), Error> {
+) -> Result<CropInsets, Error> {
     if top.is_none() && bottom.is_none() && left.is_none() && right.is_none() {
         return Err(Error::new(
             op,
@@ -892,27 +906,12 @@ pub fn crop_insets(
             "crop requires --top, --bottom, --left, or --right",
         ));
     }
-    Ok((
-        top.unwrap_or(0),
-        bottom.unwrap_or(0),
-        left.unwrap_or(0),
-        right.unwrap_or(0),
-    ))
-}
-
-pub fn validate_crop_frame(
-    top: u32,
-    bottom: u32,
-    left: u32,
-    right: u32,
-    width: u32,
-    height: u32,
-    op: &'static str,
-) -> Result<(), Error> {
-    if left.saturating_add(right) >= width || top.saturating_add(bottom) >= height {
-        return Err(Error::new(op, "bad_range", "crop would empty the frame"));
-    }
-    Ok(())
+    Ok(CropInsets {
+        top: top.unwrap_or(0),
+        bottom: bottom.unwrap_or(0),
+        left: left.unwrap_or(0),
+        right: right.unwrap_or(0),
+    })
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {

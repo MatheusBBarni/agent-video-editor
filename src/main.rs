@@ -587,13 +587,9 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             right,
             output,
         } => {
-            let (top, bottom, left, right) = crop_insets(top, bottom, left, right, "crop")?;
             Ok(Op::Crop {
                 input,
-                top,
-                bottom,
-                left,
-                right,
+                insets: crop_insets(top, bottom, left, right, "crop")?,
                 output: require_output("crop", output)?,
             })
         }
