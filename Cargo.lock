@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "agent-video-editor"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -65,17 +76,6 @@ dependencies = [
  "predicates-core",
  "predicates-tree",
  "wait-timeout",
-]
-
-[[package]]
-name = "ave"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "clap",
- "serde",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]

@@ -1,7 +1,20 @@
 [package]
-name = "ave"
+name = "agent-video-editor"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+description = "Typed ffmpeg for agents. JSON on stdout."
+license = "MIT"
+repository = "https://github.com/MatheusBBarni/agent-video-editor"
+homepage = "https://github.com/MatheusBBarni/agent-video-editor"
+readme = "README.md"
+keywords = ["ffmpeg", "video", "cli", "agents"]
+categories = ["command-line-utilities", "multimedia::video"]
+exclude = [".agents/*", ".claude/*", "assets/*", "skills-lock.json", "skills.sh.json"]
+
+[[bin]]
+name = "ave"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
