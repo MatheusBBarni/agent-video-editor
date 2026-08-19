@@ -96,7 +96,17 @@ fn detect_argv(input: &str, kind: Kind) -> Vec<String> {
             "null".into(),
             "-".into(),
         ],
-        Kind::Scenes => vec!["ffmpeg".into(), "-i".into(), input.into()],
+        Kind::Scenes => vec![
+            "ffmpeg".into(),
+            "-i".into(),
+            input.into(),
+            "-vf".into(),
+            "scdet".into(),
+            "-an".into(),
+            "-f".into(),
+            "null".into(),
+            "-".into(),
+        ],
     }
 }
 
