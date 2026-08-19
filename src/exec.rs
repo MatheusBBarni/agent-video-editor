@@ -87,20 +87,17 @@ fn execute_assuming(
     }
 
     if !ctx.dry_run {
-        if let Some(passes) = &job.passes {
-            let result = passes.iter().try_for_each(|pass| {
-                run_ffmpeg(pass).map_err(|e| Error::new(name, "ffmpeg_failed", e))
-            });
-            for path in &job.cleanup {
-                let _ = std::fs::remove_file(path);
-            }
-            result?;
-        } else {
-            run_ffmpeg(&job.argv).map_err(|e| Error::new(name, "ffmpeg_failed", e))?;
-            for path in &job.cleanup {
-                let _ = std::fs::remove_file(path);
-            }
+        let cmds = job
+            .passes
+            .as_deref()
+            .unwrap_or(std::slice::from_ref(&job.argv));
+        let result = cmds.iter().try_for_each(|cmd| {
+            run_ffmpeg(cmd).map_err(|e| Error::new(name, "ffmpeg_failed", e))
+        });
+        for path in &job.cleanup {
+            let _ = std::fs::remove_file(path);
         }
+        result?;
     }
 
     let (duration_s, width, height, size_bytes) = if ctx.dry_run {
