@@ -33,8 +33,10 @@ enum Command {
         input: String,
         #[arg(long)]
         from: String,
-        #[arg(long)]
-        to: String,
+        #[arg(long, required_unless_present = "duration")]
+        to: Option<String>,
+        #[arg(long, required_unless_present = "to")]
+        duration: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
         #[arg(long)]
@@ -229,13 +231,14 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             from,
             to,
+            duration,
             output,
             accurate,
         } => Ok(Op::Trim {
             input,
             from,
-            to: Some(to),
-            duration: None,
+            to,
+            duration,
             output: require_output("trim", output)?,
             accurate,
         }),
