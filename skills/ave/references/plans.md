@@ -28,7 +28,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | `cut-out` | `input`, `from`, `to`, `output` | `accurate` |
 | `keep` | `input`, `ranges`, `output` | `accurate` |
 | `concat` | `inputs` (≥2), `output` | |
-| `resize` | `input`, `output`, `preset` **or** `width`+`height` | `fit` (`pad`/`crop`/`stretch`) |
+| `resize` | `input`, `output`, `preset` **or** `width`+`height` | `fit` (`pad`/`crop`/`stretch`), `stretch` |
 | `frame` | `input`, `at`, `output` | |
 | `captions` | `input`, `srt`, `output` | |
 | `text` | `input`, `text`, `output` | `position`, `from`, `to` |
@@ -39,7 +39,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | `speed` | `input`, `output`, `factor` | |
 | `extract-audio` | `input`, `output` | `format` |
 | `replace-audio` | `input`, `output`, and one of `mute` / `audio` / `mix` | |
-| `overlay` | `input`, `image`, `output` | `position` |
+| `overlay` | `input`, `image`, `output` | `position` or `x`+`y`, `opacity`, `from`, `to` |
 | `compress` | `input`, `output` | `crf`, `preset` |
 | `convert` | `input`, `output` | |
 

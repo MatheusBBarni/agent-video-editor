@@ -295,6 +295,27 @@ pub fn overlay_expr(position: &str) -> Option<&'static str> {
     })
 }
 
+pub fn overlay_xy(x: i32, y: i32) -> String {
+    format!("overlay={x}:{y}")
+}
+
+pub fn overlay_filter(
+    overlay: &str,
+    opacity: Option<f64>,
+    span: Option<&(String, String)>,
+) -> String {
+    let overlay = match span {
+        Some((from, to)) => format!("{overlay}:enable='between(t,{from},{to})'"),
+        None => overlay.to_string(),
+    };
+    match opacity {
+        Some(alpha) if alpha < 1.0 => {
+            format!("[1:v]format=rgba,colorchannelmixer=aa={alpha}[ov];[0:v][ov]{overlay}")
+        }
+        _ => overlay,
+    }
+}
+
 pub fn overlay_argv(
     input: &str,
     image: &str,

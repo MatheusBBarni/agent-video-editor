@@ -9,6 +9,8 @@ pub struct Ctx {
     pub copy_only: bool,
     pub ffmpeg: String,
     pub ffprobe: String,
+    pub verbose: bool,
+    pub progress: bool,
 }
 
 pub enum Outcome {
@@ -112,7 +114,8 @@ fn execute_assuming(
             .as_deref()
             .unwrap_or(std::slice::from_ref(&job.argv));
         let result = cmds.iter().try_for_each(|cmd| {
-            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e))?;
+            run_ffmpeg(cmd, ctx.verbose, progress_duration(op, ctx))
+                .map_err(|e| Error::ffmpeg(name, e))?;
             Ok(())
         });
         for path in &job.cleanup {
@@ -318,18 +321,13 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             input,
             image,
             output,
-            position,
+            at,
+            opacity,
+            span,
         } => {
-            let expr = recipes::overlay_expr(position.as_deref().unwrap_or("top-right"))
-                .ok_or_else(|| {
-                    Error::new(
-                        "overlay",
-                        "unknown_position",
-                        format!("unknown position: {}", position.clone().unwrap_or_default()),
-                    )
-                })?;
+            let expr = at.filter(*opacity, span.as_ref())?;
             Ok(reencode_job(recipes::with_bin(
-                recipes::overlay_argv(input, image, output, expr, audio.unwrap_or(false)),
+                recipes::overlay_argv(input, image, output, &expr, audio.unwrap_or(false)),
                 bin,
             )))
         }
@@ -879,17 +877,18 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<String, String> {
-    let output = std::process::Command::new(&argv[0])
-        .args(&argv[1..])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    if output.status.success() {
-        Ok(stderr)
-    } else {
-        Err(stderr)
+pub(crate) use crate::ffmpeg_run::run_ffmpeg;
+
+fn progress_duration(op: &Op, ctx: &Ctx) -> Option<f64> {
+    if !ctx.progress {
+        return None;
     }
+    Some(
+        op.inputs()
+            .first()
+            .and_then(|input| probed_duration(&ctx.ffprobe, input, op.name()).ok())
+            .unwrap_or(0.0),
+    )
 }
 
 fn info(input: &str, ctx: &Ctx) -> Result<Outcome, Error> {

@@ -1,4 +1,5 @@
 use crate::error::Error;
+pub use crate::overlay::{OverlayAt, parse_opacity};
 use crate::recipes;
 
 #[derive(Debug, Clone)]
@@ -132,7 +133,9 @@ pub enum Op {
         input: String,
         image: String,
         output: String,
-        position: Option<String>,
+        at: OverlayAt,
+        opacity: Option<f64>,
+        span: Option<(String, String)>,
     },
     Compress {
         input: String,
@@ -381,22 +384,21 @@ impl Op {
             "resize" => {
                 let _ = req("input")?;
                 let _ = req("output")?;
-                if step["preset"].as_str().is_none()
-                    && (step["width"].as_u64().is_none() || step["height"].as_u64().is_none())
-                {
-                    return Err(Error::new(
-                        "run",
-                        "missing_field",
-                        "resize requires preset or width and height",
-                    ));
-                }
+                let preset = step["preset"].as_str().map(str::to_string);
+                let width = step["width"].as_u64().map(|n| n as u32);
+                let height = step["height"].as_u64().map(|n| n as u32);
+                resize_size_pair(preset.as_deref(), width, height, "run")?;
                 Ok(Self::Resize {
                     input: req("input")?,
                     output: req("output")?,
-                    preset: step["preset"].as_str().map(str::to_string),
-                    width: step["width"].as_u64().map(|n| n as u32),
-                    height: step["height"].as_u64().map(|n| n as u32),
-                    fit: parse_fit(step["fit"].as_str(), "run")?,
+                    preset,
+                    width,
+                    height,
+                    fit: parse_resize_fit(
+                        step["fit"].as_str(),
+                        step["stretch"].as_bool().unwrap_or(false),
+                        "run",
+                    )?,
                 })
             }
             "speed" => {
@@ -433,7 +435,18 @@ impl Op {
                 input: req("input")?,
                 image: req("image")?,
                 output: req("output")?,
-                position: step["position"].as_str().map(str::to_string),
+                at: OverlayAt::parse(
+                    step["position"].as_str().map(str::to_string),
+                    json_i32(&step["x"]),
+                    json_i32(&step["y"]),
+                    "run",
+                )?,
+                opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
+                span: text_span(
+                    json_string_or_number(&step["from"]),
+                    json_string_or_number(&step["to"]),
+                    "run",
+                )?,
             }),
             "compress" => Ok(Self::Compress {
                 input: req("input")?,
@@ -548,23 +561,34 @@ impl Op {
         else {
             return Err(Error::new(self.name(), "missing_preset", "not a resize op"));
         };
-        if let Some(preset) = preset {
-            return recipes::preset_size(preset).ok_or_else(|| {
-                Error::new(
-                    self.name(),
-                    "unknown_preset",
-                    format!("unknown preset: {preset}"),
-                )
-            });
-        }
-        match (width, height) {
-            (Some(w), Some(h)) => Ok((*w, *h)),
-            _ => Err(Error::new(
-                self.name(),
-                "missing_preset",
-                "resize requires --preset or --width and --height",
-            )),
-        }
+        resize_size_pair(preset.as_deref(), *width, *height, self.name())
+    }
+}
+
+fn resize_size_pair(
+    preset: Option<&str>,
+    width: Option<u32>,
+    height: Option<u32>,
+    op: &'static str,
+) -> Result<(u32, u32), Error> {
+    match (preset, width, height) {
+        (Some(preset), None, None) => recipes::preset_size(preset)
+            .ok_or_else(|| Error::new(op, "unknown_preset", format!("unknown preset: {preset}"))),
+        (None, Some(w), Some(h)) => Ok((w, h)),
+        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(Error::new(
+            op,
+            "conflicting_fields",
+            "resize accepts only one of preset or width and height",
+        )),
+        _ => Err(Error::new(
+            op,
+            if op == "run" {
+                "missing_field"
+            } else {
+                "missing_preset"
+            },
+            "resize requires --preset or --width and --height",
+        )),
     }
 }
 
@@ -649,6 +673,13 @@ fn parse_nonneg_finite(raw: &str) -> Option<f64> {
 
 fn json_u32(value: &serde_json::Value) -> Option<u32> {
     value.as_u64().map(|n| n as u32)
+}
+
+fn json_i32(value: &serde_json::Value) -> Option<i32> {
+    value
+        .as_i64()
+        .and_then(|n| i32::try_from(n).ok())
+        .or_else(|| value.as_u64().and_then(|n| i32::try_from(n).ok()))
 }
 
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
@@ -751,6 +782,24 @@ pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Er
             format!("unknown fit: {other}"),
         )),
     }
+}
+
+pub fn parse_resize_fit(
+    fit: Option<&str>,
+    stretch: bool,
+    op: &'static str,
+) -> Result<recipes::Fit, Error> {
+    if stretch {
+        return match fit {
+            None | Some("stretch") => Ok(recipes::Fit::Stretch),
+            Some(_) => Err(Error::new(
+                op,
+                "conflicting_fields",
+                "resize accepts only one of stretch or fit",
+            )),
+        };
+    }
+    parse_fit(fit, op)
 }
 
 pub fn parse_text_pos(raw: Option<&str>, op: &'static str) -> Result<recipes::TextPos, Error> {

@@ -306,3 +306,149 @@ fn resize_fit_stretch_width_height_dry_run_scales_without_pad() {
         "stretch should not preserve aspect: {vf}"
     );
 }
+
+#[test]
+fn resize_width_height_dry_run_scales_and_pads() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--width",
+            "640",
+            "--height",
+            "360",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("640:360"),
+        "explicit size should target 640x360: {vf}"
+    );
+    assert!(vf.contains("pad="), "default resize should pad: {vf}");
+}
+
+#[test]
+fn resize_preset_and_size_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "--width",
+            "640",
+            "--height",
+            "360",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
+}
+
+#[test]
+fn resize_preset_stretch_dry_run_scales_without_pad() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "--stretch",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("1080:1920"),
+        "tiktok stretch should target 1080x1920: {vf}"
+    );
+    assert!(!vf.contains("pad="), "--stretch must not pad: {vf}");
+    assert!(
+        !vf.contains("force_original_aspect_ratio"),
+        "--stretch should not preserve aspect: {vf}"
+    );
+}
+
+#[test]
+fn verbose_resize_dry_run_stays_json_on_stdout() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "--verbose",
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must stay JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["op"], "resize");
+}
+
+#[test]
+fn progress_resize_writes_jsonl_on_stderr() {
+    if !require_ffmpeg() {
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_clip(&dir.path().join("in.mp4"));
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "--progress",
+            "resize",
+            "in.mp4",
+            "--preset",
+            "square",
+            "-o",
+            "out.mp4",
+        ])
+        .assert()
+        .success();
+
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    let found = stderr.lines().any(|line| {
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            return false;
+        };
+        v.get("progress").is_some() || v.get("time_s").is_some()
+    });
+    assert!(found, "expected JSONL progress on stderr: {stderr}");
+}

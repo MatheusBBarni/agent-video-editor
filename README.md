@@ -106,6 +106,7 @@ Paths are relative to the current directory. A later step may use an earlier `ou
 ```
 ave [--dry-run] [--copy-only] [--no-overwrite]
     [--ffmpeg PATH] [--ffprobe PATH]
+    [--human] [--verbose] [--progress]
     <COMMAND>
 ```
 
@@ -115,6 +116,9 @@ ave [--dry-run] [--copy-only] [--no-overwrite]
 | `--copy-only` | Fail if the op would re-encode |
 | `--no-overwrite` | Fail if the output file already exists |
 | `--ffmpeg` / `--ffprobe` | Override the binaries |
+| `--human` | Text stdout instead of JSON. Agents should omit this |
+| `--verbose` | ffmpeg / ffprobe logs on stderr |
+| `--progress` | JSONL `{progress,time_s}` on stderr while encoding |
 
 Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 
@@ -129,7 +133,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `cut-out` | Delete `[from, to)` and join what remains. Probes the file end |
 | `keep` | Keep `--ranges FROM-TO,...` and join. `end` is probed |
 | `concat` | Join clips. Copies when every input probes and codec, size, fps, and rotation match; re-encodes otherwise |
-| `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. `--fit pad` (default), `crop`, or `stretch`. Or `--width` / `--height` |
+| `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`, or `--width` / `--height` (not both). `--fit pad` (default), `crop`, or `stretch` / `--stretch` |
 | `frame` | One still at `--at T`. Format from `-o` ext |
 | `frames` | Many stills into a directory: `--at T,T` or `--every SEC`. Optional `--sheet` |
 | `captions` | Burn `--srt` (`.srt` or `.vtt`) |
@@ -141,7 +145,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |
 | `extract-audio` | Pull audio. Format from `--format` or the output extension |
 | `replace-audio` | `--mute`, `--audio FILE`, or `--mix FILE` |
-| `overlay` | Logo/image. `--position top-right` (default), `top-left`, `bottom-left`, `bottom-right`, `center` |
+| `overlay` | Logo/image. `--position top-right` (default) or `--x` / `--y`. Optional `--opacity`, `--from` / `--to` |
 | `compress` | CRF 23, preset `medium` unless you pass `--crf` / `--preset` |
 | `convert` | Container from the output extension. `.gif` is a two-pass palette |
 | `run` | JSON plan, or `-` for stdin |

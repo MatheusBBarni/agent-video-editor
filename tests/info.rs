@@ -123,3 +123,30 @@ fn info_swaps_display_size_when_rotate_is_90() {
     assert_eq!(v["display_width"], 240);
     assert_eq!(v["display_height"], 320);
 }
+
+#[test]
+fn human_info_is_text_and_mentions_duration() {
+    if !require_ffmpeg() {
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("clip.mp4"), 2.0, (320, 240), true);
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["--human", "info", "clip.mp4"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        serde_json::from_str::<Value>(stdout.trim()).is_err(),
+        "--human info must not be JSON: {stdout}"
+    );
+    assert!(
+        stdout.to_ascii_lowercase().contains("duration"),
+        "--human info should mention duration: {stdout}"
+    );
+}
