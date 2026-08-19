@@ -242,6 +242,25 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             output,
             format,
         } => {
+            if std::path::Path::new(input).exists() {
+                match probe::probe_json(&ctx.ffprobe, input) {
+                    None => {
+                        return Err(Error::new(
+                            "extract-audio",
+                            "ffprobe_failed",
+                            format!("could not probe input: {input}"),
+                        ));
+                    }
+                    Some(probe) if !probe::media_info_from_probe(&probe).has_audio => {
+                        return Err(Error::new(
+                            "extract-audio",
+                            "no_audio",
+                            format!("input has no audio stream: {input}"),
+                        ));
+                    }
+                    Some(_) => {}
+                }
+            }
             let ext = format.as_deref().unwrap_or_else(|| {
                 std::path::Path::new(output)
                     .extension()

@@ -2,10 +2,44 @@ use assert_cmd::Command;
 use serde_json::Value;
 use std::fs;
 
+fn write_fixture(path: &std::path::Path) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=320x240:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:duration=1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-pix_fmt",
+            "yuv420p",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg");
+    assert!(
+        status.status.success(),
+        "ffmpeg fixture failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
 #[test]
 fn extract_audio_mp3_dry_run_disables_video() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
     let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    write_fixture(&dir.path().join("in.mp4"));
 
     let assert = Command::cargo_bin("ave")
         .unwrap()
