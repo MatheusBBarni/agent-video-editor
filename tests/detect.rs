@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ave_json, ffmpeg_available};
+use common::{ave_json, ffmpeg_available, write_video_only_fixture};
 use std::fs;
 use std::path::Path;
 use std::process::Command as StdCommand;
@@ -121,4 +121,21 @@ fn detect_silence_finds_known_gap() {
         overlaps_gap,
         "expected a segment overlapping silence at 1s-2s: {v}"
     );
+}
+
+#[test]
+fn detect_silence_on_video_only_fails_no_audio() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_video_only_fixture(&dir.path().join("clip.mp4"));
+
+    let (ok, v) = ave_json(&dir, &["detect", "clip.mp4", "--kind", "silence"]);
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "detect");
+    assert_eq!(v["error"], "no_audio");
 }
