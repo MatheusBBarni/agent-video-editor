@@ -11,7 +11,7 @@
 [![ffmpeg](https://img.shields.io/badge/ffmpeg-required-007808?style=flat-square)](https://ffmpeg.org)
 [![crates.io](https://img.shields.io/crates/v/agent-video-editor?style=flat-square)](https://crates.io/crates/agent-video-editor)
 
-[Getting started](#getting-started) • [Usage](#usage) • [Commands](#commands) • [Agent skill](#agent-skill)
+[Getting started](#getting-started) • [Usage](#usage) • [Commands](#commands) • [Agent skill](#agent-skill) • [Changelog](CHANGELOG.md)
 
 </div>
 
