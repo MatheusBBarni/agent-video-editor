@@ -70,3 +70,49 @@ fn info_reports_duration_and_resolution() {
         "expected ~2s duration, got {duration}"
     );
 }
+
+#[test]
+fn info_reports_codecs_fps_audio_and_unrotated_display() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("clip.mp4");
+    write_fixture(&input);
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["info", "clip.mp4"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+
+    let video_codec = v["video_codec"].as_str().expect("video_codec");
+    assert!(
+        video_codec.starts_with("h264"),
+        "expected h264 codec, got {video_codec}"
+    );
+    assert_eq!(v["audio_codec"], "aac");
+    assert_eq!(v["has_video"], true);
+    assert_eq!(v["has_audio"], true);
+    let fps = v["fps"].as_str().expect("fps");
+    assert!(
+        fps == "30/1" || fps == "30",
+        "expected 30/1 or 30 fps, got {fps}"
+    );
+    assert_eq!(v["rotate_deg"], 0);
+    assert_eq!(v["width"], 320);
+    assert_eq!(v["height"], 240);
+    assert_eq!(v["display_width"], 320);
+    assert_eq!(v["display_height"], 240);
+    let duration = v["duration_s"].as_f64().expect("duration_s");
+    assert!(
+        (1.5..2.5).contains(&duration),
+        "expected ~2s duration, got {duration}"
+    );
+}
