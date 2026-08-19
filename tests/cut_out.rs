@@ -123,3 +123,180 @@ fn cut_out_dry_run_prints_trim_and_concat_passes() {
         "dry-run must not write temps or output: {leftover:?}"
     );
 }
+
+#[test]
+fn cut_out_unprobeable_dry_run_fails_ffprobe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "cut-out",
+            "in.mp4",
+            "--from",
+            "1",
+            "--to",
+            "2",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "cut-out");
+    assert_eq!(v["error"], "ffprobe_failed");
+}
+
+#[test]
+fn cut_out_writes_kept_ranges_and_leaves_input() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("in.mp4");
+    write_keyed_secs(&input, 5);
+    let before = fs::read(&input).unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "cut-out", "in.mp4", "--from", "1", "--to", "3", "-o", "out.mp4",
+        ],
+    );
+    assert!(ok, "{v}");
+    assert_eq!(v["op"], "cut-out");
+    let duration = v["duration_s"].as_f64().unwrap();
+    assert!(
+        (duration - 3.0).abs() <= 0.3,
+        "expected ~3s leftover, got {duration}"
+    );
+    assert_eq!(fs::read(&input).unwrap(), before);
+    assert!(dir.path().join("out.mp4").exists());
+
+    let leftover: Vec<String> = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        leftover.iter().all(|name| {
+            name == "in.mp4"
+                || name == "out.mp4"
+                || (!name.ends_with(".ts") && !name.starts_with("ave-"))
+        }),
+        "cut-out must not leave temps in cwd: {leftover:?}"
+    );
+}
+
+#[test]
+fn cut_out_from_after_to_is_bad_range() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"x").unwrap();
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "cut-out",
+            "in.mp4",
+            "--from",
+            "3",
+            "--to",
+            "1",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok);
+    assert_eq!(v["error"], "bad_range");
+    assert_eq!(v["op"], "cut-out");
+}
+
+#[test]
+fn cut_out_refuses_in_place() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"original").unwrap();
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "cut-out",
+            "in.mp4",
+            "--from",
+            "1",
+            "--to",
+            "2",
+            "-o",
+            "in.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok);
+    assert_eq!(v["error"], "in_place");
+    assert_eq!(fs::read(dir.path().join("in.mp4")).unwrap(), b"original");
+}
+
+#[test]
+fn cut_out_missing_output_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"x").unwrap();
+    let (ok, v) = ave_json(&dir, &["cut-out", "in.mp4", "--from", "1", "--to", "2"]);
+    assert!(!ok);
+    assert_eq!(v["error"], "missing_output");
+    assert_eq!(v["op"], "cut-out");
+}
+
+#[test]
+fn run_cut_out_dry_run_matches_verb() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_secs(&dir.path().join("in.mp4"), 5);
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"steps":[{"op":"cut-out","input":"in.mp4","from":"1","to":"3","output":"out.mp4"}]}"#,
+    )
+    .unwrap();
+
+    let (ok, v) = ave_json(&dir, &["run", "plan.json", "--dry-run"]);
+    assert!(ok, "{v}");
+    assert_eq!(v["op"], "run");
+    assert_eq!(v["steps"][0]["op"], "cut-out");
+    assert_eq!(v["steps"][0]["ok"], true);
+    let passes = v["steps"][0]["passes"]
+        .as_array()
+        .expect("run cut-out dry-run must emit passes");
+    assert!(passes.len() >= 3, "{passes:?}");
+    assert!(!dir.path().join("out.mp4").exists());
+}
+
+fn write_keyed_secs(path: &std::path::Path, secs: u32) {
+    let video = format!("testsrc=duration={secs}:size=320x240:rate=30");
+    let audio = format!("sine=frequency=1000:duration={secs}");
+    ffmpeg(&[
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        &video,
+        "-f",
+        "lavfi",
+        "-i",
+        &audio,
+        "-c:v",
+        "libx264",
+        "-g",
+        "1",
+        "-keyint_min",
+        "1",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        path.to_str().unwrap(),
+    ]);
+}
