@@ -434,7 +434,7 @@ impl Op {
                 })
             }
             "overlay" => {
-                let (position, x, y) = overlay_place(
+                let place = overlay_place(
                     step["position"].as_str().map(str::to_string),
                     json_i32(&step["x"]),
                     json_i32(&step["y"]),
@@ -444,9 +444,9 @@ impl Op {
                     input: req("input")?,
                     image: req("image")?,
                     output: req("output")?,
-                    position,
-                    x,
-                    y,
+                    position: place.position,
+                    x: place.x,
+                    y: place.y,
                     opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
                     span: text_span(
                         json_string_or_number(&step["from"]),

@@ -450,8 +450,5 @@ fn progress_resize_writes_jsonl_on_stderr() {
         };
         v.get("progress").is_some() || v.get("time_s").is_some()
     });
-    assert!(
-        found,
-        "expected JSONL progress on stderr: {stderr}"
-    );
+    assert!(found, "expected JSONL progress on stderr: {stderr}");
 }

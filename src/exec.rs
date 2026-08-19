@@ -891,13 +891,7 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-pub(crate) fn run_ffmpeg(
-    argv: &[String],
-    verbose: bool,
-    duration_s: Option<f64>,
-) -> Result<String, String> {
-    crate::ffmpeg_run::run_ffmpeg(argv, verbose, duration_s)
-}
+pub(crate) use crate::ffmpeg_run::run_ffmpeg;
 
 fn progress_duration(op: &Op, ctx: &Ctx) -> Option<f64> {
     if !ctx.progress {

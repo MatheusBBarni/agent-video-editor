@@ -12,8 +12,8 @@ mod skill;
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
-use error::{Error, RunEnvelope, print_json};
-use exec::{Ctx, Outcome, execute, run_plan};
+use error::{Error, RunEnvelope};
+use exec::{Ctx, execute, run_plan};
 use op::{
     Op, TrimEnd, crop_insets, fade_pair, overlay_place, parse_at_list, parse_db, parse_every,
     parse_keep_ranges, parse_opacity, parse_resize_fit, parse_rotate_deg, parse_text_pos,
@@ -507,14 +507,14 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             to,
             output,
         } => {
-            let (position, x, y) = overlay_place(position, x, y, "overlay")?;
+            let place = overlay_place(position, x, y, "overlay")?;
             Ok(Op::Overlay {
                 input,
                 image,
                 output: require_output("overlay", output)?,
-                position,
-                x,
-                y,
+                position: place.position,
+                x: place.x,
+                y: place.y,
                 opacity: parse_opacity(opacity, "overlay")?,
                 span: text_span(from, to, "overlay")?,
             })

@@ -14,12 +14,18 @@ pub fn parse_opacity(raw: Option<f64>, op: &'static str) -> Result<Option<f64>, 
     ))
 }
 
+pub struct OverlayPlace {
+    pub position: Option<String>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+}
+
 pub fn overlay_place(
     position: Option<String>,
     x: Option<i32>,
     y: Option<i32>,
     op: &'static str,
-) -> Result<(Option<String>, Option<i32>, Option<i32>), Error> {
+) -> Result<OverlayPlace, Error> {
     let position = position.filter(|s| !s.is_empty());
     match (&position, x, y) {
         (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(Error::new(
@@ -32,6 +38,6 @@ pub fn overlay_place(
             "missing_field",
             "overlay pixel placement requires both x and y",
         )),
-        _ => Ok((position, x, y)),
+        _ => Ok(OverlayPlace { position, x, y }),
     }
 }
