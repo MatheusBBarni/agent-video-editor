@@ -10,6 +10,30 @@ fn ffmpeg_available() -> bool {
         .unwrap_or(false)
 }
 
+fn write_video_only_fixture(path: &std::path::Path) {
+    let status = StdCommand::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=2:size=320x240:rate=30",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg");
+    assert!(
+        status.status.success(),
+        "ffmpeg fixture failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
 fn write_fixture(path: &std::path::Path) {
     let status = StdCommand::new("ffmpeg")
         .args([
@@ -115,4 +139,31 @@ fn info_reports_codecs_fps_audio_and_unrotated_display() {
         (1.5..2.5).contains(&duration),
         "expected ~2s duration, got {duration}"
     );
+}
+
+#[test]
+fn info_reports_empty_audio_on_video_only_file() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("silent.mp4");
+    write_video_only_fixture(&input);
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["info", "silent.mp4"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["has_audio"], false);
+    assert_eq!(v["audio_codec"], "");
+    assert_eq!(v["has_video"], true);
 }
