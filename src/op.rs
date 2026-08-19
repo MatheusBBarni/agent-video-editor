@@ -149,6 +149,13 @@ pub enum Op {
         at: String,
         output: String,
     },
+    Frames {
+        input: String,
+        at: Vec<String>,
+        every: Option<f64>,
+        sheet: Option<String>,
+        output: String,
+    },
     Captions {
         input: String,
         srt: String,
@@ -198,6 +205,7 @@ impl Op {
             Self::Compress { .. } => "compress",
             Self::Convert { .. } => "convert",
             Self::Frame { .. } => "frame",
+            Self::Frames { .. } => "frames",
             Self::Captions { .. } => "captions",
             Self::Text { .. } => "text",
             Self::Fade { .. } => "fade",
@@ -222,6 +230,7 @@ impl Op {
             | Self::Compress { output, .. }
             | Self::Convert { output, .. }
             | Self::Frame { output, .. }
+            | Self::Frames { output, .. }
             | Self::Captions { output, .. }
             | Self::Text { output, .. }
             | Self::Fade { output, .. }
@@ -242,6 +251,7 @@ impl Op {
             | Self::Compress { input, .. }
             | Self::Convert { input, .. }
             | Self::Frame { input, .. }
+            | Self::Frames { input, .. }
             | Self::Text { input, .. }
             | Self::Fade { input, .. }
             | Self::Volume { input, .. }
@@ -469,6 +479,11 @@ impl Op {
                 srt: require_subtitle_file("run", req("srt")?)?,
                 output: req("output")?,
             }),
+            "frames" => Err(Error::new(
+                "run",
+                "unsupported_in_run",
+                "frames is not valid inside ave run",
+            )),
             "frame" => {
                 let at = req("at")?;
                 if parse_timestamp(&at).is_none() {
@@ -634,6 +649,66 @@ pub fn replace_audio_choice(
             "replace-audio accepts only one of mute, audio, or mix",
         )),
     }
+}
+
+pub fn parse_at_list(
+    at: Option<String>,
+    every: Option<&str>,
+    op: &'static str,
+) -> Result<Vec<String>, Error> {
+    match (
+        at.filter(|s| !s.is_empty()),
+        every.filter(|s| !s.is_empty()),
+    ) {
+        (Some(_), Some(_)) => Err(Error::new(
+            op,
+            "conflicting_fields",
+            "frames accepts only one of --at or --every",
+        )),
+        (None, None) => Err(Error::new(
+            op,
+            "missing_field",
+            "frames requires --at or --every",
+        )),
+        (None, Some(_)) => Ok(Vec::new()),
+        (Some(raw), None) => {
+            let stamps: Vec<String> = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect();
+            if stamps.is_empty() {
+                return Err(Error::new(
+                    op,
+                    "missing_field",
+                    "frames requires --at or --every",
+                ));
+            }
+            for stamp in &stamps {
+                if parse_timestamp(stamp).is_none() {
+                    return Err(Error::new(
+                        op,
+                        "bad_timestamp",
+                        format!("invalid timestamp: {stamp}"),
+                    ));
+                }
+            }
+            Ok(stamps)
+        }
+    }
+}
+
+pub fn parse_every(every: Option<String>, op: &'static str) -> Result<Option<f64>, Error> {
+    let Some(raw) = every.filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let secs = parse_timestamp(&raw)
+        .ok_or_else(|| Error::new(op, "bad_timestamp", format!("invalid timestamp: {raw}")))?;
+    if secs <= 0.0 {
+        return Err(Error::new(op, "bad_range", "every must be greater than 0"));
+    }
+    Ok(Some(secs))
 }
 
 pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Error> {

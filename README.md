@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, convert, frame, captions, text, fade, volume, and rotate
+- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, convert, frame, frames, captions, text, fade, volume, and rotate
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -130,6 +130,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `concat` | Join clips. Copies when every input probes and codec, size, fps, and rotation match; re-encodes otherwise |
 | `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. `--fit pad` (default), `crop`, or `stretch`. Or `--width` / `--height` |
 | `frame` | One still at `--at T`. Format from `-o` ext |
+| `frames` | Many stills into a directory: `--at T,T` or `--every SEC`. Optional `--sheet` |
 | `captions` | Burn `--srt` (`.srt` or `.vtt`) |
 | `text` | One title. `--position lower-third` / `center` / `top` |
 | `fade` | `--in` and/or `--out` seconds |

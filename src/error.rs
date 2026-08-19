@@ -108,6 +108,26 @@ pub struct InfoEnvelope {
 }
 
 #[derive(Serialize)]
+pub struct FrameItem {
+    pub at: String,
+    pub path: String,
+}
+
+#[derive(Serialize)]
+pub struct FramesEnvelope {
+    pub ok: bool,
+    pub op: &'static str,
+    pub input: String,
+    pub output: String,
+    pub frames: Vec<FrameItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sheet: Option<String>,
+    pub ffmpeg: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub passes: Option<Vec<Vec<String>>>,
+}
+
+#[derive(Serialize)]
 pub struct DoctorEnvelope {
     pub ok: bool,
     pub op: &'static str,

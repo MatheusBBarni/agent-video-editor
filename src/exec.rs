@@ -1,4 +1,4 @@
-use crate::error::{DoctorEnvelope, Envelope, Error, InfoEnvelope};
+use crate::error::{DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
 use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
@@ -14,6 +14,7 @@ pub struct Ctx {
 pub enum Outcome {
     Edit(Envelope),
     Info(InfoEnvelope),
+    Frames(FramesEnvelope),
     Doctor(DoctorEnvelope),
 }
 
@@ -52,6 +53,7 @@ fn execute_assuming(
     match op {
         Op::Doctor => return doctor(ctx),
         Op::Info { input } => return info(input, ctx),
+        Op::Frames { .. } => return crate::frames::execute(op, ctx),
         _ => {}
     }
 
@@ -422,7 +424,9 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             recipes::frame_argv(input, at, output),
             bin,
         ))),
-        Op::Info { .. } | Op::Doctor => Err(Error::new(op.name(), "internal", "not a mutating op")),
+        Op::Info { .. } | Op::Doctor | Op::Frames { .. } => {
+            Err(Error::new(op.name(), "internal", "not a mutating op"))
+        }
     }
 }
 
@@ -755,7 +759,11 @@ fn cut_out_job(
     keep_pieces_job(input, &pieces, output, accurate, ctx, bin)
 }
 
-fn probed_duration(ffprobe_bin: &str, input: &str, op: &'static str) -> Result<f64, Error> {
+pub(crate) fn probed_duration(
+    ffprobe_bin: &str,
+    input: &str,
+    op: &'static str,
+) -> Result<f64, Error> {
     let probe = probe::probe_json(ffprobe_bin, input).ok_or_else(|| {
         Error::new(
             op,
@@ -842,7 +850,7 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
+pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
     let output = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .output()
