@@ -61,7 +61,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `concat` | `<in...> -o OUT` | ≥2 files; copy if codec, size, fps, and `rotate_deg` match |
 | `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |
-| `extract-audio` | `<in> -o OUT` | codec from `--format` or `-o` ext (`mp3` `wav` `aac` `flac` `copy`) |
+| `extract-audio` | `<in> -o OUT` | codec from `--format` or `-o` ext (`mp3` `wav` `aac` `flac` `copy`). Video-only → `no_audio` |
 | `replace-audio` | `<in> -o OUT` | `--mute` or `--audio FILE` or `--mix FILE` |
 | `overlay` | `<in> --image IMG -o OUT` | `--position` `top-right` (default) `top-left` `bottom-left` `bottom-right` `center` |
 | `compress` | `<in> -o OUT` | `--crf 23` `--preset medium` |

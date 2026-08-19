@@ -127,7 +127,9 @@ fn speed_video_only_dry_run_omits_atempo() {
         "expected setpts in {argv:?}"
     );
     assert!(
-        !argv.iter().any(|a| a.contains("atempo") || a == "-filter:a"),
+        !argv
+            .iter()
+            .any(|a| a.contains("atempo") || a == "-filter:a"),
         "video-only speed must omit atempo: {argv:?}"
     );
 }

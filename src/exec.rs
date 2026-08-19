@@ -158,8 +158,13 @@ pub fn run_plan(ops: &[Op], ctx: &Ctx) -> Result<Vec<Envelope>, RunFail> {
     Ok(steps)
 }
 
+fn primary_audio(op: &Op, ctx: &Ctx) -> Option<bool> {
+    probe::probed_has_audio(&ctx.ffprobe, op.inputs().first()?)
+}
+
 fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
     let bin = ctx.ffmpeg.as_str();
+    let audio = primary_audio(op, ctx);
     match op {
         Op::Trim {
             input,
@@ -171,7 +176,15 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             let (end_flag, end_val) = end.ffmpeg_flag();
             Ok(Job {
                 argv: recipes::with_bin(
-                    recipes::trim_argv(from, end_flag, end_val, input, output, *accurate),
+                    recipes::trim_argv(
+                        from,
+                        end_flag,
+                        end_val,
+                        input,
+                        output,
+                        *accurate,
+                        audio.unwrap_or(true),
+                    ),
                     bin,
                 ),
                 passes: None,
@@ -201,7 +214,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                         input,
                         output,
                         &recipes::scale_pad(w, h),
-                        probe::has_audio(&ctx.ffprobe, input),
+                        audio.unwrap_or(false),
                     ),
                     bin,
                 ),
@@ -224,12 +237,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             }
             Ok(Job {
                 argv: recipes::with_bin(
-                    recipes::speed_argv(
-                        input,
-                        output,
-                        *factor,
-                        probe::has_audio(&ctx.ffprobe, input),
-                    ),
+                    recipes::speed_argv(input, output, *factor, audio.unwrap_or(false)),
                     bin,
                 ),
                 passes: None,
@@ -242,24 +250,22 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             output,
             format,
         } => {
-            if std::path::Path::new(input).exists() {
-                match probe::probe_json(&ctx.ffprobe, input) {
-                    None => {
-                        return Err(Error::new(
-                            "extract-audio",
-                            "ffprobe_failed",
-                            format!("could not probe input: {input}"),
-                        ));
-                    }
-                    Some(probe) if !probe::media_info_from_probe(&probe).has_audio => {
-                        return Err(Error::new(
-                            "extract-audio",
-                            "no_audio",
-                            format!("input has no audio stream: {input}"),
-                        ));
-                    }
-                    Some(_) => {}
+            match audio {
+                None if std::path::Path::new(input).exists() => {
+                    return Err(Error::new(
+                        "extract-audio",
+                        "ffprobe_failed",
+                        format!("could not probe input: {input}"),
+                    ));
                 }
+                Some(false) => {
+                    return Err(Error::new(
+                        "extract-audio",
+                        "no_audio",
+                        format!("input has no audio stream: {input}"),
+                    ));
+                }
+                None | Some(true) => {}
             }
             let ext = format.as_deref().unwrap_or_else(|| {
                 std::path::Path::new(output)
@@ -323,7 +329,10 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                     )
                 })?;
             Ok(Job {
-                argv: recipes::with_bin(recipes::overlay_argv(input, image, output, expr), bin),
+                argv: recipes::with_bin(
+                    recipes::overlay_argv(input, image, output, expr, audio.unwrap_or(false)),
+                    bin,
+                ),
                 passes: None,
                 cleanup: vec![],
                 reencode: true,
@@ -335,7 +344,10 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             crf,
             preset,
         } => Ok(Job {
-            argv: recipes::with_bin(recipes::compress_argv(input, output, *crf, preset), bin),
+            argv: recipes::with_bin(
+                recipes::compress_argv(input, output, *crf, preset, audio.unwrap_or(false)),
+                bin,
+            ),
             passes: None,
             cleanup: vec![],
             reencode: true,

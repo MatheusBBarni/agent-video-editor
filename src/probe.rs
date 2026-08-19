@@ -139,13 +139,11 @@ pub fn media_meta(ffprobe_bin: &str, path: &str) -> (f64, u32, u32, u64) {
     (info.duration_s, info.width, info.height, info.size_bytes)
 }
 
-pub fn has_audio(ffprobe_bin: &str, path: &str) -> bool {
+pub fn probed_has_audio(ffprobe_bin: &str, path: &str) -> Option<bool> {
     if !std::path::Path::new(path).exists() {
-        return false;
+        return None;
     }
-    probe_json(ffprobe_bin, path)
-        .map(|p| media_info_from_probe(&p).has_audio)
-        .unwrap_or(false)
+    Some(media_info_from_probe(&probe_json(ffprobe_bin, path)?).has_audio)
 }
 
 pub fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {

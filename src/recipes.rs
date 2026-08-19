@@ -12,6 +12,7 @@ pub fn trim_argv(
     input: &str,
     output: &str,
     accurate: bool,
+    has_audio: bool,
 ) -> Vec<String> {
     if accurate {
         let mut ffmpeg = vec![
@@ -25,7 +26,7 @@ pub fn trim_argv(
             "-i".into(),
             input.into(),
         ];
-        ffmpeg.extend(reencode_video_args());
+        ffmpeg.extend(reencode_video_args(has_audio));
         ffmpeg.push(output.into());
         ffmpeg
     } else {
@@ -59,7 +60,7 @@ pub fn concat_argv(list_path: &str, output: &str, copy: bool) -> Vec<String> {
     if copy {
         ffmpeg.extend(["-c".into(), "copy".into()]);
     } else {
-        ffmpeg.extend(reencode_video_args());
+        ffmpeg.extend(reencode_video_args(true));
     }
     ffmpeg.push(output.into());
     ffmpeg
@@ -84,9 +85,7 @@ pub fn resize_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<
         "-preset".into(),
         "medium".into(),
     ]);
-    if has_audio {
-        ffmpeg.extend(["-c:a".into(), "copy".into()]);
-    }
+    push_audio_copy(&mut ffmpeg, has_audio);
     ffmpeg.push(output.into());
     ffmpeg
 }
@@ -185,8 +184,14 @@ pub fn overlay_expr(position: &str) -> Option<&'static str> {
     })
 }
 
-pub fn overlay_argv(input: &str, image: &str, output: &str, expr: &str) -> Vec<String> {
-    vec![
+pub fn overlay_argv(
+    input: &str,
+    image: &str,
+    output: &str,
+    expr: &str,
+    has_audio: bool,
+) -> Vec<String> {
+    let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
         "-i".into(),
@@ -195,14 +200,20 @@ pub fn overlay_argv(input: &str, image: &str, output: &str, expr: &str) -> Vec<S
         image.into(),
         "-filter_complex".into(),
         expr.into(),
-        "-c:a".into(),
-        "copy".into(),
-        output.into(),
-    ]
+    ];
+    push_audio_copy(&mut ffmpeg, has_audio);
+    ffmpeg.push(output.into());
+    ffmpeg
 }
 
-pub fn compress_argv(input: &str, output: &str, crf: u8, preset: &str) -> Vec<String> {
-    vec![
+pub fn compress_argv(
+    input: &str,
+    output: &str,
+    crf: u8,
+    preset: &str,
+    has_audio: bool,
+) -> Vec<String> {
+    let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
         "-i".into(),
@@ -211,10 +222,10 @@ pub fn compress_argv(input: &str, output: &str, crf: u8, preset: &str) -> Vec<St
         crf.to_string(),
         "-preset".into(),
         preset.into(),
-        "-c:a".into(),
-        "copy".into(),
-        output.into(),
-    ]
+    ];
+    push_audio_copy(&mut ffmpeg, has_audio);
+    ffmpeg.push(output.into());
+    ffmpeg
 }
 
 pub fn gif_passes(input: &str, output: &str, palette: &str) -> (Vec<String>, Vec<String>) {
@@ -290,8 +301,14 @@ pub fn convert_argv(input: &str, output: &str) -> Vec<String> {
     ]
 }
 
-fn reencode_video_args() -> [String; 12] {
-    [
+fn push_audio_copy(argv: &mut Vec<String>, has_audio: bool) {
+    if has_audio {
+        argv.extend(["-c:a".into(), "copy".into()]);
+    }
+}
+
+fn reencode_video_args(has_audio: bool) -> Vec<String> {
+    let mut args = vec![
         "-c:v".into(),
         "libx264".into(),
         "-pix_fmt".into(),
@@ -300,9 +317,10 @@ fn reencode_video_args() -> [String; 12] {
         "23".into(),
         "-preset".into(),
         "medium".into(),
-        "-c:a".into(),
-        "aac".into(),
-        "-movflags".into(),
-        "+faststart".into(),
-    ]
+    ];
+    if has_audio {
+        args.extend(["-c:a".into(), "aac".into()]);
+    }
+    args.extend(["-movflags".into(), "+faststart".into()]);
+    args
 }
