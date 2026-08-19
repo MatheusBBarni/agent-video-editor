@@ -131,3 +131,23 @@ fn speed_video_only_dry_run_omits_atempo() {
         "video-only speed must omit atempo: {argv:?}"
     );
 }
+
+#[test]
+fn speed_video_only_writes_output() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_video_only_fixture(&dir.path().join("in.mp4"));
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["speed", "in.mp4", "--factor", "2", "-o", "out.mp4"])
+        .assert()
+        .success();
+
+    assert!(dir.path().join("out.mp4").exists());
+}
