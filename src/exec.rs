@@ -170,10 +170,21 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             input,
             from,
             to,
+            duration,
             output,
             accurate,
         } => Ok(Job {
-            argv: recipes::with_bin(recipes::trim_argv(from, to, input, output, *accurate), bin),
+            argv: recipes::with_bin(
+                recipes::trim_argv(
+                    from,
+                    to.as_deref(),
+                    duration.as_deref(),
+                    input,
+                    output,
+                    *accurate,
+                ),
+                bin,
+            ),
             passes: None,
             cleanup: vec![],
             reencode: *accurate,

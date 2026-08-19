@@ -234,7 +234,8 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         } => Ok(Op::Trim {
             input,
             from,
-            to,
+            to: Some(to),
+            duration: None,
             output: require_output("trim", output)?,
             accurate,
         }),

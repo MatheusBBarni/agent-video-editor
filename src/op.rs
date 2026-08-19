@@ -6,7 +6,8 @@ pub enum Op {
     Trim {
         input: String,
         from: String,
-        to: String,
+        to: Option<String>,
+        duration: Option<String>,
         output: String,
         accurate: bool,
     },
@@ -149,7 +150,11 @@ impl Op {
                 Ok(Self::Trim {
                     input: req("input")?,
                     from: req("from")?,
-                    to: step["to"].as_str().unwrap_or("").to_string(),
+                    to: step["to"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
+                    duration: step["duration"]
+                        .as_str()
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_string),
                     output: req("output")?,
                     accurate: step["accurate"].as_bool().unwrap_or(false),
                 })
