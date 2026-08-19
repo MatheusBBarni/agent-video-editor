@@ -46,7 +46,53 @@ pub fn trim_argv(
     }
 }
 
-pub fn concat_argv(list_path: &str, output: &str, copy: bool) -> Vec<String> {
+pub fn mpegts_video_bsf(codec: &str) -> Option<&'static str> {
+    match codec {
+        "h264" => Some("h264_mp4toannexb"),
+        "hevc" | "h265" => Some("hevc_mp4toannexb"),
+        _ => None,
+    }
+}
+
+pub fn concat_copy_to_mpegts_argv(input: &str, ts_out: &str, video_bsf: &str) -> Vec<String> {
+    vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-i".into(),
+        input.into(),
+        "-c".into(),
+        "copy".into(),
+        "-bsf:v".into(),
+        video_bsf.into(),
+        ts_out.into(),
+    ]
+}
+
+pub fn concat_from_mpegts_argv(
+    list_path: &str,
+    output: &str,
+    audio_bsf: Option<&str>,
+) -> Vec<String> {
+    let mut ffmpeg = vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-f".into(),
+        "concat".into(),
+        "-safe".into(),
+        "0".into(),
+        "-i".into(),
+        list_path.into(),
+        "-c".into(),
+        "copy".into(),
+    ];
+    if let Some(bsf) = audio_bsf {
+        ffmpeg.extend(["-bsf:a".into(), bsf.into()]);
+    }
+    ffmpeg.push(output.into());
+    ffmpeg
+}
+
+pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -57,11 +103,7 @@ pub fn concat_argv(list_path: &str, output: &str, copy: bool) -> Vec<String> {
         "-i".into(),
         list_path.into(),
     ];
-    if copy {
-        ffmpeg.extend(["-c".into(), "copy".into()]);
-    } else {
-        ffmpeg.extend(reencode_video_args(true));
-    }
+    ffmpeg.extend(reencode_video_args(true));
     ffmpeg.push(output.into());
     ffmpeg
 }

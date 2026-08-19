@@ -1,14 +1,5 @@
 use crate::error::Error;
 
-#[derive(PartialEq, Eq)]
-pub struct VideoShape {
-    pub codec: String,
-    pub width: u32,
-    pub height: u32,
-    pub fps: String,
-    pub rotate_deg: u32,
-}
-
 pub struct MediaInfo {
     pub duration_s: f64,
     pub width: u32,
@@ -144,17 +135,6 @@ pub fn probed_has_audio(ffprobe_bin: &str, path: &str) -> Option<bool> {
         return None;
     }
     Some(media_info_from_probe(&probe_json(ffprobe_bin, path)?).has_audio)
-}
-
-pub fn probe_video(ffprobe_bin: &str, input: &str) -> Option<VideoShape> {
-    let info = media_info_from_probe(&probe_json(ffprobe_bin, input)?);
-    info.has_video.then_some(VideoShape {
-        codec: info.video_codec,
-        width: info.width,
-        height: info.height,
-        fps: info.fps,
-        rotate_deg: info.rotate_deg,
-    })
 }
 
 pub fn tool_version(bin: &str) -> Option<String> {
