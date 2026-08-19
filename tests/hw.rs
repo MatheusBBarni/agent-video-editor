@@ -124,3 +124,28 @@ fn hw_unknown_is_unknown_hw() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["error"], "unknown_hw");
 }
+
+#[test]
+fn hw_does_not_apply_to_copy_trim() {
+    let (_v, argv) = dry_run_argv(&[
+        "--hw",
+        "videotoolbox",
+        "trim",
+        "in.mp4",
+        "--from",
+        "0",
+        "--to",
+        "1",
+        "-o",
+        "out.mp4",
+        "--dry-run",
+    ]);
+    assert!(
+        argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "copy trim must stay -c copy: {argv:?}"
+    );
+    assert!(
+        !argv.iter().any(|a| a == "h264_videotoolbox"),
+        "hw must not apply to copy trim: {argv:?}"
+    );
+}
