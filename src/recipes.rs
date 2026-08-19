@@ -26,7 +26,11 @@ pub fn trim_argv(
             "-i".into(),
             input.into(),
         ];
-        ffmpeg.extend(reencode_video_args(has_audio));
+        ffmpeg.extend(reencode_video_args(23, "medium"));
+        if has_audio {
+            ffmpeg.extend(["-c:a".into(), "aac".into()]);
+        }
+        push_faststart(&mut ffmpeg, output);
         ffmpeg.push(output.into());
         ffmpeg
     } else {
@@ -84,7 +88,9 @@ pub fn concat_from_mpegts_argv(
 
 pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
     let mut ffmpeg = concat_demuxer_prefix(list_path);
-    ffmpeg.extend(reencode_video_args(true));
+    ffmpeg.extend(reencode_video_args(23, "medium"));
+    ffmpeg.extend(["-c:a".into(), "aac".into()]);
+    push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
 }
@@ -152,17 +158,9 @@ pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) ->
         "-vf".into(),
         vf.into(),
     ];
-    ffmpeg.extend([
-        "-c:v".into(),
-        "libx264".into(),
-        "-pix_fmt".into(),
-        "yuv420p".into(),
-        "-crf".into(),
-        "23".into(),
-        "-preset".into(),
-        "medium".into(),
-    ]);
+    ffmpeg.extend(reencode_video_args(23, "medium"));
     push_audio_copy(&mut ffmpeg, has_audio);
+    push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
 }
@@ -515,20 +513,25 @@ fn push_audio_copy(argv: &mut Vec<String>, has_audio: bool) {
     }
 }
 
-fn reencode_video_args(has_audio: bool) -> Vec<String> {
-    let mut args = vec![
+pub fn reencode_video_args(crf: u8, preset: &str) -> Vec<String> {
+    vec![
         "-c:v".into(),
         "libx264".into(),
         "-pix_fmt".into(),
         "yuv420p".into(),
         "-crf".into(),
-        "23".into(),
+        crf.to_string(),
         "-preset".into(),
-        "medium".into(),
-    ];
-    if has_audio {
-        args.extend(["-c:a".into(), "aac".into()]);
+        preset.into(),
+    ]
+}
+
+fn push_faststart(argv: &mut Vec<String>, output: &str) {
+    let mp4 = std::path::Path::new(output)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("mp4"));
+    if mp4 {
+        argv.extend(["-movflags".into(), "+faststart".into()]);
     }
-    args.extend(["-movflags".into(), "+faststart".into()]);
-    args
 }
