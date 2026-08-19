@@ -241,6 +241,8 @@ pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool) -> Ve
     if has_audio {
         ffmpeg.extend(["-filter:a".into(), atempo_filter(factor)]);
     }
+    ffmpeg.extend(reencode_video_args(23, "medium"));
+    push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
 }
