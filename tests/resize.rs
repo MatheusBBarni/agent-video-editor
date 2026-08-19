@@ -362,3 +362,32 @@ fn resize_preset_and_size_conflict() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["error"], "conflicting_fields");
 }
+
+#[test]
+fn resize_preset_stretch_dry_run_scales_without_pad() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--preset",
+            "tiktok",
+            "--stretch",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("1080:1920"),
+        "tiktok stretch should target 1080x1920: {vf}"
+    );
+    assert!(!vf.contains("pad="), "--stretch must not pad: {vf}");
+    assert!(
+        !vf.contains("force_original_aspect_ratio"),
+        "--stretch should not preserve aspect: {vf}"
+    );
+}
