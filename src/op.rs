@@ -84,6 +84,13 @@ pub enum Op {
         inputs: Vec<String>,
         output: String,
     },
+    CutOut {
+        input: String,
+        from: String,
+        to: String,
+        output: String,
+        accurate: bool,
+    },
     Resize {
         input: String,
         output: String,
@@ -135,6 +142,7 @@ impl Op {
         match self {
             Self::Trim { .. } => "trim",
             Self::Concat { .. } => "concat",
+            Self::CutOut { .. } => "cut-out",
             Self::Resize { .. } => "resize",
             Self::Speed { .. } => "speed",
             Self::ExtractAudio { .. } => "extract-audio",
@@ -151,6 +159,7 @@ impl Op {
         match self {
             Self::Trim { output, .. }
             | Self::Concat { output, .. }
+            | Self::CutOut { output, .. }
             | Self::Resize { output, .. }
             | Self::Speed { output, .. }
             | Self::ExtractAudio { output, .. }
@@ -165,6 +174,7 @@ impl Op {
     pub fn inputs(&self) -> Vec<&str> {
         match self {
             Self::Trim { input, .. }
+            | Self::CutOut { input, .. }
             | Self::Resize { input, .. }
             | Self::Speed { input, .. }
             | Self::ExtractAudio { input, .. }
@@ -238,6 +248,18 @@ impl Op {
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect(),
                     output: req("output")?,
+                })
+            }
+            "cut-out" => {
+                let from = req("from")?;
+                let to = req("to")?;
+                TrimEnd::To(to.clone()).validate_against(&from, "run")?;
+                Ok(Self::CutOut {
+                    input: req("input")?,
+                    from,
+                    to,
+                    output: req("output")?,
+                    accurate: step["accurate"].as_bool().unwrap_or(false),
                 })
             }
             "resize" => {

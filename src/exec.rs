@@ -1,5 +1,5 @@
 use crate::error::{DoctorEnvelope, Envelope, Error, InfoEnvelope};
-use crate::op::Op;
+use crate::op::{Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
 
@@ -172,27 +172,23 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             end,
             output,
             accurate,
-        } => {
-            let (end_flag, end_val) = end.ffmpeg_flag();
-            Ok(Job {
-                argv: recipes::with_bin(
-                    recipes::trim_argv(
-                        from,
-                        end_flag,
-                        end_val,
-                        input,
-                        output,
-                        *accurate,
-                        audio.unwrap_or(false),
-                    ),
-                    bin,
-                ),
-                passes: None,
-                cleanup: vec![],
-                reencode: *accurate,
-            })
-        }
+        } => Ok(trim_job(
+            input,
+            from,
+            end,
+            output,
+            *accurate,
+            audio.unwrap_or(false),
+            bin,
+        )),
         Op::Concat { inputs, output } => concat_job(inputs, output, ctx, bin),
+        Op::CutOut {
+            input,
+            from,
+            to,
+            output,
+            accurate,
+        } => cut_out_job(input, from, to, output, *accurate, ctx, bin),
         Op::Resize { input, output, .. } => {
             let (w, h) = op.resize_size()?;
             Ok(Job {
@@ -368,6 +364,27 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
     }
 }
 
+fn trim_job(
+    input: &str,
+    from: &str,
+    end: &TrimEnd,
+    output: &str,
+    accurate: bool,
+    has_audio: bool,
+    bin: &str,
+) -> Job {
+    let (end_flag, end_val) = end.ffmpeg_flag();
+    Job {
+        argv: recipes::with_bin(
+            recipes::trim_argv(from, end_flag, end_val, input, output, accurate, has_audio),
+            bin,
+        ),
+        passes: None,
+        cleanup: vec![],
+        reencode: accurate,
+    }
+}
+
 enum ConcatPlan {
     Remux {
         video_bsf: &'static str,
@@ -377,7 +394,17 @@ enum ConcatPlan {
 }
 
 fn concat_job(inputs: &[String], output: &str, ctx: &Ctx, bin: &str) -> Result<Job, Error> {
-    match concat_plan(inputs, &ctx.ffprobe) {
+    concat_job_with_plan(inputs, output, ctx, bin, concat_plan(inputs, &ctx.ffprobe))
+}
+
+fn concat_job_with_plan(
+    inputs: &[String],
+    output: &str,
+    ctx: &Ctx,
+    bin: &str,
+    plan: ConcatPlan,
+) -> Result<Job, Error> {
+    match plan {
         ConcatPlan::Remux {
             video_bsf,
             audio_bsf,
@@ -453,6 +480,149 @@ fn concat_plan(inputs: &[String], ffprobe_bin: &str) -> ConcatPlan {
         video_bsf,
         audio_bsf,
     }
+}
+
+fn cut_out_job(
+    input: &str,
+    from: &str,
+    to: &str,
+    output: &str,
+    accurate: bool,
+    ctx: &Ctx,
+    bin: &str,
+) -> Result<Job, Error> {
+    let end_s = probed_duration(&ctx.ffprobe, input)?;
+    let from_s = parse_timestamp(from).ok_or_else(|| {
+        Error::new(
+            "cut-out",
+            "bad_timestamp",
+            format!("invalid timestamp: {from}"),
+        )
+    })?;
+    let to_s = parse_timestamp(to).ok_or_else(|| {
+        Error::new(
+            "cut-out",
+            "bad_timestamp",
+            format!("invalid timestamp: {to}"),
+        )
+    })?;
+    if from_s >= to_s {
+        return Err(Error::new(
+            "cut-out",
+            "bad_range",
+            "from must be less than to",
+        ));
+    }
+    if to_s > end_s {
+        return Err(Error::new(
+            "cut-out",
+            "bad_range",
+            "to is past the end of the input",
+        ));
+    }
+    if from_s <= 0.0 && to_s >= end_s {
+        return Err(Error::new(
+            "cut-out",
+            "bad_range",
+            "cut-out would leave nothing",
+        ));
+    }
+
+    let has_audio = probe::probed_has_audio(&ctx.ffprobe, input).unwrap_or(false);
+    let end = end_s.to_string();
+    let keep_head = from_s > 0.0;
+    let keep_tail = to_s < end_s;
+
+    match (keep_head, keep_tail) {
+        (true, true) => {
+            let head = unique_temp_file("cut-out-a", "mp4");
+            let tail = unique_temp_file("cut-out-b", "mp4");
+            let head_job = trim_job(
+                input,
+                "0",
+                &TrimEnd::To(from.to_string()),
+                &head,
+                accurate,
+                has_audio,
+                bin,
+            );
+            let tail_job = trim_job(
+                input,
+                to,
+                &TrimEnd::To(end),
+                &tail,
+                accurate,
+                has_audio,
+                bin,
+            );
+            let plan = if accurate {
+                ConcatPlan::Remux {
+                    video_bsf: "h264_mp4toannexb",
+                    audio_bsf: has_audio.then_some("aac_adtstoasc"),
+                }
+            } else {
+                concat_plan(&[input.to_string()], &ctx.ffprobe)
+            };
+            let concat =
+                concat_job_with_plan(&[head.clone(), tail.clone()], output, ctx, bin, plan)?;
+            let mut passes = vec![head_job.argv, tail_job.argv];
+            match &concat.passes {
+                Some(extra) => passes.extend(extra.iter().cloned()),
+                None => passes.push(concat.argv.clone()),
+            }
+            let mut cleanup = concat.cleanup;
+            cleanup.push(head);
+            cleanup.push(tail);
+            Ok(Job {
+                argv: concat.argv,
+                passes: Some(passes),
+                cleanup,
+                reencode: head_job.reencode || tail_job.reencode || concat.reencode,
+            })
+        }
+        (true, false) => Ok(trim_job(
+            input,
+            "0",
+            &TrimEnd::To(from.to_string()),
+            output,
+            accurate,
+            has_audio,
+            bin,
+        )),
+        (false, true) => Ok(trim_job(
+            input,
+            to,
+            &TrimEnd::To(end),
+            output,
+            accurate,
+            has_audio,
+            bin,
+        )),
+        (false, false) => Err(Error::new(
+            "cut-out",
+            "bad_range",
+            "cut-out would leave nothing",
+        )),
+    }
+}
+
+fn probed_duration(ffprobe_bin: &str, input: &str) -> Result<f64, Error> {
+    let probe = probe::probe_json(ffprobe_bin, input).ok_or_else(|| {
+        Error::new(
+            "cut-out",
+            "ffprobe_failed",
+            format!("could not probe input: {input}"),
+        )
+    })?;
+    let duration = probe::media_info_from_probe(&probe).duration_s;
+    if duration <= 0.0 {
+        return Err(Error::new(
+            "cut-out",
+            "ffprobe_failed",
+            format!("could not probe duration: {input}"),
+        ));
+    }
+    Ok(duration)
 }
 
 fn unique_temp_file(kind: &str, ext: &str) -> String {

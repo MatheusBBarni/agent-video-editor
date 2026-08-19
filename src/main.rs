@@ -55,6 +55,18 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    #[command(name = "cut-out")]
+    CutOut {
+        input: String,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+        #[arg(long)]
+        accurate: bool,
+    },
     Resize {
         input: String,
         #[arg(long)]
@@ -182,6 +194,7 @@ fn usage_op() -> &'static str {
             "run" => Some("run"),
             "info" => Some("info"),
             "concat" => Some("concat"),
+            "cut-out" => Some("cut-out"),
             "resize" => Some("resize"),
             "convert" => Some("convert"),
             "compress" => Some("compress"),
@@ -288,6 +301,22 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             Ok(Op::Concat {
                 inputs,
                 output: require_output("concat", output)?,
+            })
+        }
+        Command::CutOut {
+            input,
+            from,
+            to,
+            output,
+            accurate,
+        } => {
+            TrimEnd::To(to.clone()).validate_against(&from, "cut-out")?;
+            Ok(Op::CutOut {
+                input,
+                from,
+                to,
+                output: require_output("cut-out", output)?,
+                accurate,
             })
         }
         Command::Resize {
