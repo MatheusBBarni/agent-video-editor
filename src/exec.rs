@@ -54,6 +54,7 @@ fn execute_assuming(
         Op::Doctor => return doctor(ctx),
         Op::Info { input } => return info(input, ctx),
         Op::Frames { .. } => return crate::frames::execute(op, ctx),
+        Op::Detect { .. } => return crate::detect::execute(op, ctx),
         _ => {}
     }
 
