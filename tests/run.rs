@@ -254,6 +254,36 @@ fn run_rejects_doctor_before_any_step() {
 }
 
 #[test]
+fn run_rejects_conflicting_replace_audio_flags() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(dir.path().join("m.mp3"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {"op": "trim", "input": "in.mp4", "from": "0", "to": "1", "output": "a.mp4"},
+            {"op": "replace-audio", "input": "a.mp4", "output": "out.mp4", "mute": true, "mix": "m.mp3"}
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_flags");
+    assert!(!dir.path().join("a.mp4").exists());
+}
+
+#[test]
 fn run_dry_run_accurate_trim_uses_accurate_seek_recipe() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();

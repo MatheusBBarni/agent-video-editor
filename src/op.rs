@@ -239,16 +239,12 @@ impl Op {
                 format: step["format"].as_str().map(str::to_string),
             }),
             "replace-audio" => {
-                let mute = step["mute"].as_bool().unwrap_or(false);
-                let audio = step["audio"].as_str().map(str::to_string);
-                let mix = step["mix"].as_str().map(str::to_string);
-                if !mute && audio.is_none() && mix.is_none() {
-                    return Err(Error::new(
-                        "run",
-                        "missing_audio",
-                        "replace-audio requires mute, audio, or mix",
-                    ));
-                }
+                let (mute, audio, mix) = replace_audio_choice(
+                    step["mute"].as_bool().unwrap_or(false),
+                    step["audio"].as_str().map(str::to_string),
+                    step["mix"].as_str().map(str::to_string),
+                    "run",
+                )?;
                 Ok(Self::ReplaceAudio {
                     input: req("input")?,
                     output: req("output")?,
@@ -322,6 +318,28 @@ fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
         return Some(s.to_string());
     }
     value.as_number().map(ToString::to_string)
+}
+
+pub fn replace_audio_choice(
+    mute: bool,
+    audio: Option<String>,
+    mix: Option<String>,
+    op: &'static str,
+) -> Result<(bool, Option<String>, Option<String>), Error> {
+    let count = usize::from(mute) + usize::from(audio.is_some()) + usize::from(mix.is_some());
+    match count {
+        0 => Err(Error::new(
+            op,
+            "missing_audio",
+            "replace-audio requires mute, audio, or mix",
+        )),
+        1 => Ok((mute, audio, mix)),
+        _ => Err(Error::new(
+            op,
+            "conflicting_flags",
+            "replace-audio accepts only one of mute, audio, or mix",
+        )),
+    }
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
