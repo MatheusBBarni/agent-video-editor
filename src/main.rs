@@ -3,6 +3,7 @@ mod error;
 mod exec;
 mod ffmpeg_run;
 mod frames;
+mod hw;
 mod op;
 mod overlay;
 mod probe;
@@ -16,6 +17,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope};
 use exec::{Ctx, execute, run_plan};
+use hw::Hw;
 use op::{
     Op, OverlayAt, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every,
     parse_keep_ranges, parse_opacity, parse_resize_fit, parse_rotate_deg, parse_text_pos,
@@ -41,6 +43,8 @@ struct Cli {
     verbose: bool,
     #[arg(long, global = true)]
     progress: bool,
+    #[arg(long, global = true)]
+    hw: Option<String>,
     #[command(subcommand)]
     command: Command,
 }
@@ -287,6 +291,10 @@ fn main() {
         ffprobe: cli.ffprobe.clone().unwrap_or_else(|| "ffprobe".into()),
         verbose: cli.verbose,
         progress: cli.progress,
+        hw: match Hw::parse(cli.hw.as_deref()) {
+            Ok(hw) => hw,
+            Err(err) => error::fail(err),
+        },
     };
 
     match cli.command {

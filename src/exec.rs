@@ -1,4 +1,5 @@
 use crate::error::{DetectEnvelope, DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
+use crate::hw::Hw;
 use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
@@ -11,6 +12,7 @@ pub struct Ctx {
     pub ffprobe: String,
     pub verbose: bool,
     pub progress: bool,
+    pub hw: Hw,
 }
 
 pub enum Outcome {
@@ -37,10 +39,10 @@ fn reencode_job(argv: Vec<String>) -> Job {
     }
 }
 
-fn vf_job(input: &str, output: &str, vf: &str, has_audio: bool, bin: &str) -> Job {
+fn vf_job(input: &str, output: &str, vf: &str, has_audio: bool, ctx: &Ctx) -> Job {
     reencode_job(recipes::with_bin(
-        recipes::vf_reencode_argv(input, output, vf, has_audio),
-        bin,
+        recipes::vf_reencode_argv(input, output, vf, has_audio, ctx.hw),
+        &ctx.ffmpeg,
     ))
 }
 
@@ -204,6 +206,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             *accurate,
             audio.unwrap_or(false),
             bin,
+            ctx.hw,
         )),
         Op::Concat { inputs, output } => concat_job(inputs, output, ctx, bin),
         Op::CutOut {
@@ -228,7 +231,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 output,
                 &recipes::resize_filter(w, h, *fit),
                 audio.unwrap_or(false),
-                bin,
+                ctx,
             ))
         }
         Op::Speed {
@@ -244,7 +247,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 ));
             }
             Ok(reencode_job(recipes::with_bin(
-                recipes::speed_argv(input, output, *factor, audio.unwrap_or(false)),
+                recipes::speed_argv(input, output, *factor, audio.unwrap_or(false), ctx.hw),
                 bin,
             )))
         }
@@ -327,7 +330,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
         } => {
             let expr = at.filter(*opacity, span.as_ref())?;
             Ok(reencode_job(recipes::with_bin(
-                recipes::overlay_argv(input, image, output, &expr, audio.unwrap_or(false)),
+                recipes::overlay_argv(input, image, output, &expr, audio.unwrap_or(false), ctx.hw),
                 bin,
             )))
         }
@@ -337,7 +340,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             crf,
             preset,
         } => Ok(reencode_job(recipes::with_bin(
-            recipes::compress_argv(input, output, *crf, preset, audio.unwrap_or(false)),
+            recipes::compress_argv(input, output, *crf, preset, audio.unwrap_or(false), ctx.hw),
             bin,
         ))),
         Op::Convert { input, output } => {
@@ -366,7 +369,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             }
         }
         Op::Rotate { input, deg, output } => {
-            Ok(vf_job(input, output, deg.vf(), audio.unwrap_or(false), bin))
+            Ok(vf_job(input, output, deg.vf(), audio.unwrap_or(false), ctx))
         }
         Op::Volume { input, db, output } => Ok(reencode_job(recipes::with_bin(
             recipes::volume_argv(input, output, *db),
@@ -398,7 +401,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 output,
                 &recipes::fade_vf(*fade_in, fade_out),
                 audio.unwrap_or(false),
-                bin,
+                ctx,
             ))
         }
         Op::Text {
@@ -412,14 +415,14 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             output,
             &recipes::text_vf(text, *position, span.as_ref()),
             audio.unwrap_or(false),
-            bin,
+            ctx,
         )),
         Op::Captions { input, srt, output } => Ok(vf_job(
             input,
             output,
             &recipes::captions_vf(srt),
             audio.unwrap_or(false),
-            bin,
+            ctx,
         )),
         Op::Crop {
             input,
@@ -444,7 +447,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 output,
                 &insets.filter(),
                 audio.unwrap_or(false),
-                bin,
+                ctx,
             ))
         }
         Op::Frame { input, at, output } => Ok(reencode_job(recipes::with_bin(
@@ -465,11 +468,14 @@ fn trim_job(
     accurate: bool,
     has_audio: bool,
     bin: &str,
+    hw: Hw,
 ) -> Job {
     let (end_flag, end_val) = end.ffmpeg_flag();
     Job {
         argv: recipes::with_bin(
-            recipes::trim_argv(from, end_flag, end_val, input, output, accurate, has_audio),
+            recipes::trim_argv(
+                from, end_flag, end_val, input, output, accurate, has_audio, hw,
+            ),
             bin,
         ),
         passes: None,
@@ -540,7 +546,7 @@ fn concat_job_with_plan(
                 write_concat_list(inputs)?
             };
             Ok(Job {
-                argv: recipes::with_bin(recipes::concat_argv(&list_path, output), bin),
+                argv: recipes::with_bin(recipes::concat_argv(&list_path, output, ctx.hw), bin),
                 passes: None,
                 cleanup: if ctx.dry_run { vec![] } else { vec![list_path] },
                 reencode: true,
@@ -678,6 +684,7 @@ fn keep_pieces_job(
             accurate,
             has_audio,
             bin,
+            ctx.hw,
         )),
         many => {
             let temps: Vec<String> = (0..many.len())
@@ -695,6 +702,7 @@ fn keep_pieces_job(
                         accurate,
                         has_audio,
                         bin,
+                        ctx.hw,
                     )
                     .argv
                 })
