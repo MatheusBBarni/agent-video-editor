@@ -109,6 +109,92 @@ fn trim_to_and_duration_conflict_fails_with_json() {
 }
 
 #[test]
+fn trim_without_to_or_duration_fails_missing_field() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("out.mp4");
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "10",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "missing_field");
+    assert!(
+        !output.exists(),
+        "must not write output when end is missing"
+    );
+}
+
+#[test]
+fn trim_accurate_duration_dry_run_swaps_to_for_t() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "30",
+            "--duration",
+            "5",
+            "-o",
+            "out.mp4",
+            "--accurate",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(
+        v["ffmpeg"],
+        serde_json::json!([
+            "ffmpeg",
+            "-y",
+            "-accurate_seek",
+            "-ss",
+            "30",
+            "-t",
+            "5",
+            "-i",
+            "in.mp4",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "23",
+            "-preset",
+            "medium",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            "out.mp4"
+        ])
+    );
+}
+
+#[test]
 fn trim_without_output_fails_with_json_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();

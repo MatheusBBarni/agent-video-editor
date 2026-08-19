@@ -13,6 +13,8 @@ impl TrimEnd {
         duration: Option<String>,
         op: &'static str,
     ) -> Result<Self, Error> {
+        let to = to.filter(|s| !s.is_empty());
+        let duration = duration.filter(|s| !s.is_empty());
         match (to, duration) {
             (Some(to), None) => Ok(Self::To(to)),
             (None, Some(duration)) => Ok(Self::Duration(duration)),
@@ -171,24 +173,17 @@ impl Op {
                 })
         };
         match op {
-            "trim" => {
-                let _ = req("input")?;
-                let _ = req("from")?;
-                let to = step["to"]
-                    .as_str()
-                    .filter(|s| !s.is_empty())
-                    .map(str::to_string);
-                let duration = json_string_or_number(&step["duration"]);
-                let end = TrimEnd::exclusive(to, duration, "run")?;
-                let _ = req("output")?;
-                Ok(Self::Trim {
-                    input: req("input")?,
-                    from: req("from")?,
-                    end,
-                    output: req("output")?,
-                    accurate: step["accurate"].as_bool().unwrap_or(false),
-                })
-            }
+            "trim" => Ok(Self::Trim {
+                input: req("input")?,
+                from: req("from")?,
+                end: TrimEnd::exclusive(
+                    json_string_or_number(&step["to"]),
+                    json_string_or_number(&step["duration"]),
+                    "run",
+                )?,
+                output: req("output")?,
+                accurate: step["accurate"].as_bool().unwrap_or(false),
+            }),
             "concat" => {
                 let inputs = step["inputs"]
                     .as_array()

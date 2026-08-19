@@ -387,3 +387,23 @@ fn run_trim_numeric_duration_uses_t_not_to() {
         "numeric duration must not emit ffmpeg -to"
     );
 }
+
+#[test]
+fn run_trim_numeric_to_and_duration_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","to":20,"duration":5,"output":"out.mp4"}]}"#;
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "-", "--dry-run"])
+        .write_stdin(plan)
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
+}

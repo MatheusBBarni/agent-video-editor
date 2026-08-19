@@ -33,9 +33,9 @@ enum Command {
         input: String,
         #[arg(long)]
         from: String,
-        #[arg(long, required_unless_present = "duration")]
+        #[arg(long)]
         to: Option<String>,
-        #[arg(long, required_unless_present = "to")]
+        #[arg(long)]
         duration: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
