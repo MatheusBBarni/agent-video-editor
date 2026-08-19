@@ -121,18 +121,20 @@ pub fn atempo_filter(mut factor: f64) -> String {
     parts.join(",")
 }
 
-pub fn speed_argv(input: &str, output: &str, factor: f64) -> Vec<String> {
-    vec![
+pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool) -> Vec<String> {
+    let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
         "-i".into(),
         input.into(),
         "-filter:v".into(),
         format!("setpts={}*PTS", 1.0 / factor),
-        "-filter:a".into(),
-        atempo_filter(factor),
-        output.into(),
-    ]
+    ];
+    if has_audio {
+        ffmpeg.extend(["-filter:a".into(), atempo_filter(factor)]);
+    }
+    ffmpeg.push(output.into());
+    ffmpeg
 }
 
 pub fn audio_codec(ext: &str) -> Option<&'static str> {

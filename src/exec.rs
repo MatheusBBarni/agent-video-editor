@@ -223,7 +223,15 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 ));
             }
             Ok(Job {
-                argv: recipes::with_bin(recipes::speed_argv(input, output, *factor), bin),
+                argv: recipes::with_bin(
+                    recipes::speed_argv(
+                        input,
+                        output,
+                        *factor,
+                        probe::has_audio(&ctx.ffprobe, input),
+                    ),
+                    bin,
+                ),
                 passes: None,
                 cleanup: vec![],
                 reencode: true,
