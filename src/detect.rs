@@ -1,6 +1,5 @@
 use crate::error::{DetectEnvelope, DetectSegment, Error};
-use crate::exec::{Ctx, Outcome};
-use crate::op::Op;
+use crate::exec::{Ctx, Outcome, probed_duration, run_ffmpeg};
 use crate::probe;
 use crate::recipes;
 
@@ -34,10 +33,7 @@ pub fn parse_kind(raw: &str) -> Result<Kind, Error> {
     }
 }
 
-pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
-    let Op::Detect { input, kind } = op else {
-        return Err(Error::new("detect", "internal", "not a detect op"));
-    };
+pub fn execute(input: &str, kind: Kind, ctx: &Ctx) -> Result<Outcome, Error> {
     if !std::path::Path::new(input).exists() {
         return Err(Error::new(
             "detect",
@@ -45,96 +41,48 @@ pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
             format!("input not found: {input}"),
         ));
     }
-    if *kind == Kind::Silence && probe::probed_has_audio(&ctx.ffprobe, input) == Some(false) {
+    if kind == Kind::Silence && probe::probed_has_audio(&ctx.ffprobe, input) == Some(false) {
         return Err(Error::new(
             "detect",
             "no_audio",
             format!("input has no audio stream: {input}"),
         ));
     }
-    let argv = recipes::with_bin(detect_argv(input, *kind), &ctx.ffmpeg);
+    let argv = recipes::with_bin(detect_argv(input, kind), &ctx.ffmpeg);
     let segments = if ctx.dry_run {
         Vec::new()
     } else {
-        parse_segments(
-            *kind,
-            &run_detect(&argv)?,
-            probed_duration(&ctx.ffprobe, input),
-        )
+        let duration = match kind {
+            Kind::Scenes => Some(probed_duration(&ctx.ffprobe, input, "detect")?),
+            Kind::Silence | Kind::Black => None,
+        };
+        let log = run_ffmpeg(&argv).map_err(|e| Error::ffmpeg("detect", e))?;
+        parse_segments(kind, &log, duration)
     };
-    Ok(detect_ok(input, *kind, segments, argv))
-}
-
-fn detect_ok(input: &str, kind: Kind, segments: Vec<DetectSegment>, argv: Vec<String>) -> Outcome {
-    Outcome::Detect(DetectEnvelope {
+    Ok(Outcome::Detect(DetectEnvelope {
         ok: true,
         op: "detect",
         kind: kind.as_str(),
         input: input.to_string(),
         segments,
         ffmpeg: argv,
-    })
+    }))
 }
 
 fn detect_argv(input: &str, kind: Kind) -> Vec<String> {
-    let mut argv = vec!["ffmpeg".into(), "-i".into(), input.into()];
     match kind {
-        Kind::Silence => argv.extend(["-af".into(), "silencedetect=noise=-30dB:d=0.5".into()]),
-        Kind::Black => argv.extend([
-            "-vf".into(),
-            "blackdetect=d=0.5:pix_th=0.10".into(),
-            "-an".into(),
-        ]),
-        Kind::Scenes => argv.extend(["-vf".into(), "scdet".into(), "-an".into()]),
+        Kind::Silence => recipes::detect_silence_argv(input),
+        Kind::Black => recipes::detect_black_argv(input),
+        Kind::Scenes => recipes::detect_scenes_argv(input),
     }
-    argv.extend(["-f".into(), "null".into(), "-".into()]);
-    argv
-}
-
-fn run_detect(argv: &[String]) -> Result<String, Error> {
-    let output = std::process::Command::new(&argv[0])
-        .args(&argv[1..])
-        .output()
-        .map_err(|e| Error::ffmpeg("detect", e.to_string()))?;
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    if output.status.success() {
-        Ok(stderr)
-    } else {
-        Err(Error::ffmpeg("detect", stderr))
-    }
-}
-
-fn probed_duration(ffprobe_bin: &str, input: &str) -> Option<f64> {
-    let duration = probe::media_info_from_probe(&probe::probe_json(ffprobe_bin, input)?).duration_s;
-    (duration > 0.0).then_some(duration)
 }
 
 fn parse_segments(kind: Kind, log: &str, duration_s: Option<f64>) -> Vec<DetectSegment> {
     match kind {
         Kind::Silence => parse_paired(log, "silence_start:", "silence_end:", "silence"),
-        Kind::Black => parse_black(log),
+        Kind::Black => parse_paired(log, "black_start:", "black_end:", "black"),
         Kind::Scenes => parse_scenes(log, duration_s),
     }
-}
-
-fn parse_black(log: &str) -> Vec<DetectSegment> {
-    let mut segments = Vec::new();
-    for line in log.lines() {
-        let Some(start) = labeled_f64(line, "black_start:") else {
-            continue;
-        };
-        let Some(end) = labeled_f64(line, "black_end:") else {
-            continue;
-        };
-        if start < end {
-            segments.push(DetectSegment {
-                start_s: start,
-                end_s: end,
-                kind: "black",
-            });
-        }
-    }
-    segments
 }
 
 fn parse_paired(
@@ -148,7 +96,8 @@ fn parse_paired(
     for line in log.lines() {
         if let Some(value) = labeled_f64(line, start_label) {
             start = Some(value);
-        } else if let Some(end) = labeled_f64(line, end_label) {
+        }
+        if let Some(end) = labeled_f64(line, end_label) {
             if let Some(start) = start.take() {
                 if start < end {
                     segments.push(DetectSegment {

@@ -490,6 +490,25 @@ pub fn convert_argv(input: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn detect_silence_argv(input: &str) -> Vec<String> {
+    detect_null_argv(input, &["-vn", "-af", "silencedetect=noise=-30dB:d=0.5"])
+}
+
+pub fn detect_black_argv(input: &str) -> Vec<String> {
+    detect_null_argv(input, &["-vf", "blackdetect=d=0.5:pix_th=0.10", "-an"])
+}
+
+pub fn detect_scenes_argv(input: &str) -> Vec<String> {
+    detect_null_argv(input, &["-vf", "scdet", "-an"])
+}
+
+fn detect_null_argv(input: &str, mid: &[&str]) -> Vec<String> {
+    let mut argv = vec!["ffmpeg".into(), "-i".into(), input.into()];
+    argv.extend(mid.iter().map(|s| (*s).to_string()));
+    argv.extend(["-f".into(), "null".into(), "-".into()]);
+    argv
+}
+
 fn push_audio_copy(argv: &mut Vec<String>, has_audio: bool) {
     if has_audio {
         argv.extend(["-c:a".into(), "copy".into()]);

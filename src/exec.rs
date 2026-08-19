@@ -55,7 +55,7 @@ fn execute_assuming(
         Op::Doctor => return doctor(ctx),
         Op::Info { input } => return info(input, ctx),
         Op::Frames { .. } => return crate::frames::execute(op, ctx),
-        Op::Detect { .. } => return crate::detect::execute(op, ctx),
+        Op::Detect { input, kind } => return crate::detect::execute(input, *kind, ctx),
         _ => {}
     }
 
@@ -113,7 +113,10 @@ fn execute_assuming(
             .unwrap_or(std::slice::from_ref(&job.argv));
         let result = cmds
             .iter()
-            .try_for_each(|cmd| run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e)));
+            .try_for_each(|cmd| {
+                run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e))?;
+                Ok(())
+            });
         for path in &job.cleanup {
             let _ = std::fs::remove_file(path);
         }
@@ -878,15 +881,16 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
+pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<String, String> {
     let output = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .output()
         .map_err(|e| e.to_string())?;
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     if output.status.success() {
-        Ok(())
+        Ok(stderr)
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        Err(stderr)
     }
 }
 

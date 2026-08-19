@@ -1,6 +1,7 @@
 mod common;
 
 use common::{ave_json, ffmpeg_available, write_video_only_fixture};
+use serde_json::Value;
 use std::fs;
 use std::path::Path;
 use std::process::Command as StdCommand;
@@ -28,6 +29,15 @@ fn detect_missing_input_fails() {
     assert_eq!(v["error"], "missing_input");
 }
 
+fn ffmpeg_argv(v: &Value) -> Vec<&str> {
+    v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect()
+}
+
 #[test]
 fn detect_silence_dry_run_prints_silencedetect_and_empty_segments() {
     let dir = tempfile::tempdir().unwrap();
@@ -44,17 +54,16 @@ fn detect_silence_dry_run_prints_silencedetect_and_empty_segments() {
     assert_eq!(v["input"], "clip.mp4");
     let segments = v["segments"].as_array().expect("segments");
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
-    let argv: Vec<&str> = v["ffmpeg"]
-        .as_array()
-        .expect("ffmpeg argv")
-        .iter()
-        .map(|x| x.as_str().unwrap())
-        .collect();
+    let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter().any(|a| a.contains("silencedetect")),
-        "argv must contain silencedetect: {argv:?}"
+        argv.iter()
+            .any(|a| *a == "silencedetect=noise=-30dB:d=0.5"),
+        "argv must lock silencedetect=noise=-30dB:d=0.5: {argv:?}"
     );
-    assert!(!dir.path().join("out.mp4").exists());
+    assert!(
+        argv.contains(&"-vn"),
+        "silence detect should skip video: {argv:?}"
+    );
 }
 
 fn ffmpeg(args: &[&str]) {
@@ -171,15 +180,11 @@ fn detect_black_dry_run_prints_blackdetect() {
     assert_eq!(v["kind"], "black");
     let segments = v["segments"].as_array().expect("segments");
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
-    let argv: Vec<&str> = v["ffmpeg"]
-        .as_array()
-        .expect("ffmpeg argv")
-        .iter()
-        .map(|x| x.as_str().unwrap())
-        .collect();
+    let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter().any(|a| a.contains("blackdetect")),
-        "argv must contain blackdetect: {argv:?}"
+        argv.iter()
+            .any(|a| *a == "blackdetect=d=0.5:pix_th=0.10"),
+        "argv must lock blackdetect=d=0.5:pix_th=0.10: {argv:?}"
     );
 }
 
@@ -198,15 +203,10 @@ fn detect_scenes_dry_run_prints_scdet() {
     assert_eq!(v["kind"], "scenes");
     let segments = v["segments"].as_array().expect("segments");
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
-    let argv: Vec<&str> = v["ffmpeg"]
-        .as_array()
-        .expect("ffmpeg argv")
-        .iter()
-        .map(|x| x.as_str().unwrap())
-        .collect();
+    let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter().any(|a| a.contains("scdet")),
-        "argv must contain scdet: {argv:?}"
+        argv.iter().any(|a| *a == "scdet"),
+        "argv must lock scdet: {argv:?}"
     );
 }
 
@@ -270,14 +270,24 @@ fn detect_scenes_splits_known_cut() {
     assert!(ok, "{v}");
     assert_eq!(v["kind"], "scenes");
     let segments = v["segments"].as_array().expect("segments");
+    assert_eq!(segments.len(), 2, "expected two scene spans: {v}");
+    let start0 = segments[0]["start_s"].as_f64().expect("start_s");
+    let end0 = segments[0]["end_s"].as_f64().expect("end_s");
+    let start1 = segments[1]["start_s"].as_f64().expect("start_s");
+    let end1 = segments[1]["end_s"].as_f64().expect("end_s");
+    assert_eq!(segments[0]["kind"], "scenes");
+    assert_eq!(segments[1]["kind"], "scenes");
+    assert!(start0 < end0 && start1 < end1, "{v}");
     assert!(
-        segments.len() >= 2,
-        "expected scene spans around the cut: {v}"
+        (end0 - 1.0).abs() < 0.15,
+        "first scene should end near the 1s cut: {v}"
     );
-    for seg in segments {
-        let start = seg["start_s"].as_f64().expect("start_s");
-        let end = seg["end_s"].as_f64().expect("end_s");
-        assert!(start < end, "start_s must be < end_s: {seg}");
-        assert_eq!(seg["kind"], "scenes");
-    }
+    assert!(
+        (start1 - 1.0).abs() < 0.15,
+        "second scene should start near the 1s cut: {v}"
+    );
+    assert!(
+        (end1 - 2.0).abs() < 0.25,
+        "last scene should end near duration: {v}"
+    );
 }
