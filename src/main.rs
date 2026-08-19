@@ -11,9 +11,9 @@ use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
-    Op, TrimEnd, fade_pair, parse_at_list, parse_db, parse_every, parse_fit, parse_keep_ranges,
-    parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output, require_subtitle_file,
-    text_span,
+    Op, TrimEnd, crop_insets, fade_pair, parse_at_list, parse_db, parse_every, parse_fit,
+    parse_keep_ranges, parse_rotate_deg, parse_text_pos, replace_audio_choice, require_output,
+    require_subtitle_file, text_span,
 };
 
 #[derive(Parser)]
@@ -586,13 +586,16 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             left,
             right,
             output,
-        } => Ok(Op::Crop {
-            input,
-            top: top.unwrap_or(0),
-            bottom: bottom.unwrap_or(0),
-            left: left.unwrap_or(0),
-            right: right.unwrap_or(0),
-            output: require_output("crop", output)?,
-        }),
+        } => {
+            let (top, bottom, left, right) = crop_insets(top, bottom, left, right, "crop")?;
+            Ok(Op::Crop {
+                input,
+                top,
+                bottom,
+                left,
+                right,
+                output: require_output("crop", output)?,
+            })
+        }
     }
 }

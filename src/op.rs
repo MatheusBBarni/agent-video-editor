@@ -857,6 +857,28 @@ pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, E
     }
 }
 
+pub fn crop_insets(
+    top: Option<u32>,
+    bottom: Option<u32>,
+    left: Option<u32>,
+    right: Option<u32>,
+    op: &'static str,
+) -> Result<(u32, u32, u32, u32), Error> {
+    if top.is_none() && bottom.is_none() && left.is_none() && right.is_none() {
+        return Err(Error::new(
+            op,
+            "missing_field",
+            "crop requires --top, --bottom, --left, or --right",
+        ));
+    }
+    Ok((
+        top.unwrap_or(0),
+        bottom.unwrap_or(0),
+        left.unwrap_or(0),
+        right.unwrap_or(0),
+    ))
+}
+
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
     output.ok_or_else(|| {
         Error::new(
