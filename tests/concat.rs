@@ -120,3 +120,66 @@ fn concat_mismatch_dry_run_reencodes() {
     );
     assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
 }
+
+fn write_rotated_fixture(path: &std::path::Path, size: &str) {
+    let src = path.with_file_name(format!(
+        "src-{}",
+        path.file_name().unwrap().to_string_lossy()
+    ));
+    write_fixture(&src, size);
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-display_rotation",
+            "90",
+            "-i",
+            src.to_str().unwrap(),
+            "-c",
+            "copy",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg rotate remux");
+    assert!(
+        status.status.success(),
+        "ffmpeg rotate remux failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
+fn concat_dry_run_argv(dir: &tempfile::TempDir, a: &str, b: &str) -> Vec<String> {
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["concat", a, b, "-o", "out.mp4", "--dry-run"])
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn concat_mixed_rotation_dry_run_reencodes() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("unrotated.mp4"), "320x240");
+    write_rotated_fixture(&dir.path().join("rotated.mp4"), "320x240");
+
+    let argv = concat_dry_run_argv(&dir, "unrotated.mp4", "rotated.mp4");
+    assert!(
+        !argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "mixed rotation must re-encode: {argv:?}"
+    );
+    assert!(argv.iter().any(|a| a == "libx264"), "expected libx264 in {argv:?}");
+}
