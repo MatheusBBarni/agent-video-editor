@@ -69,7 +69,9 @@ fn trim_duration_dry_run_uses_t_not_to() {
     assert_eq!(v["ok"], true);
     assert_eq!(
         v["ffmpeg"],
-        serde_json::json!(["ffmpeg", "-y", "-ss", "10", "-t", "5", "-i", "in.mp4", "-c", "copy", "out.mp4"])
+        serde_json::json!([
+            "ffmpeg", "-y", "-ss", "10", "-t", "5", "-i", "in.mp4", "-c", "copy", "out.mp4"
+        ])
     );
     assert!(!output.exists(), "dry-run must not write the output file");
 }

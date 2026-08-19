@@ -359,7 +359,8 @@ fn run_trim_without_to_or_duration_fails_missing_field() {
 fn run_trim_numeric_duration_uses_t_not_to() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
-    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","duration":5,"output":"out.mp4"}]}"#;
+    let plan =
+        r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","duration":5,"output":"out.mp4"}]}"#;
 
     let assert = Command::cargo_bin("ave")
         .unwrap()
