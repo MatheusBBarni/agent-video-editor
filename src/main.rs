@@ -1,3 +1,4 @@
+mod detect;
 mod error;
 mod exec;
 mod frames;
@@ -54,6 +55,11 @@ enum Command {
     },
     Info {
         input: String,
+    },
+    Detect {
+        input: String,
+        #[arg(long)]
+        kind: String,
     },
     Concat {
         inputs: Vec<String>,
@@ -268,6 +274,7 @@ fn main() {
             Ok(Outcome::Edit(env)) => print_json(&env),
             Ok(Outcome::Info(env)) => print_json(&env),
             Ok(Outcome::Frames(env)) => print_json(&env),
+            Ok(Outcome::Detect(env)) => print_json(&env),
             Ok(Outcome::Doctor(env)) => {
                 let ok = env.ok;
                 print_json(&env);
@@ -288,6 +295,7 @@ fn usage_op() -> &'static str {
             "doctor" => Some("doctor"),
             "run" => Some("run"),
             "info" => Some("info"),
+            "detect" => Some("detect"),
             "concat" => Some("concat"),
             "cut-out" => Some("cut-out"),
             "keep" => Some("keep"),
@@ -376,6 +384,10 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         }
         Command::Doctor => Ok(Op::Doctor),
         Command::Info { input } => Ok(Op::Info { input }),
+        Command::Detect { input, kind } => Ok(Op::Detect {
+            input,
+            kind: detect::parse_kind(&kind)?,
+        }),
         Command::Trim {
             input,
             from,

@@ -192,6 +192,10 @@ pub enum Op {
     Info {
         input: String,
     },
+    Detect {
+        input: String,
+        kind: crate::detect::Kind,
+    },
     Doctor,
 }
 
@@ -218,6 +222,7 @@ impl Op {
             Self::Rotate { .. } => "rotate",
             Self::Crop { .. } => "crop",
             Self::Info { .. } => "info",
+            Self::Detect { .. } => "detect",
             Self::Doctor => "doctor",
         }
     }
@@ -243,7 +248,7 @@ impl Op {
             | Self::Volume { output, .. }
             | Self::Rotate { output, .. }
             | Self::Crop { output, .. } => Some(output),
-            Self::Info { .. } | Self::Doctor => None,
+            Self::Info { .. } | Self::Detect { .. } | Self::Doctor => None,
         }
     }
 
@@ -264,7 +269,8 @@ impl Op {
             | Self::Volume { input, .. }
             | Self::Rotate { input, .. }
             | Self::Crop { input, .. }
-            | Self::Info { input } => vec![input],
+            | Self::Info { input }
+            | Self::Detect { input, .. } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
             Self::ReplaceAudio {
@@ -518,7 +524,7 @@ impl Op {
                     output: req("output")?,
                 })
             }
-            "info" | "doctor" => Err(Error::new(
+            "info" | "doctor" | "detect" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
                 format!("{op} is not valid inside ave run"),

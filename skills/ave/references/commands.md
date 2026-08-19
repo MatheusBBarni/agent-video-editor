@@ -10,6 +10,16 @@ ave info clip.mp4
 
 JSON includes `duration_s`, coded `width`/`height`, `size_bytes`, `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. Missing streams use `""` / `false` / `0`. `rotate_deg` is `0`, `90`, `180`, or `270`.
 
+## detect
+
+```bash
+ave detect clip.mp4 --kind silence
+ave detect clip.mp4 --kind black --dry-run
+ave detect clip.mp4 --kind scenes
+```
+
+Read-only. No `-o`. `--kind` is required: `silence` (`silencedetect=noise=-30dB:d=0.5`), `black` (`blackdetect=d=0.5:pix_th=0.10`), or `scenes` (`scdet`). Unknown kind → `unknown_kind`. Video-only + `silence` → `no_audio`. `--copy-only` / `--no-overwrite` are ignored. JSON `segments` is `{ start_s, end_s, kind }`. Empty `segments` is success. Not valid inside `ave run`.
+
 ## trim
 
 ```bash
