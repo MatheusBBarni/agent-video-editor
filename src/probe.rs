@@ -24,46 +24,50 @@ pub struct MediaInfo {
 }
 
 pub fn media_info_from_probe(probe: &serde_json::Value) -> MediaInfo {
-    let duration_s = probe["format"]["duration"]
-        .as_str()
-        .and_then(|s| s.parse().ok())
-        .or_else(|| probe["format"]["duration"].as_f64())
-        .unwrap_or(0.0);
-    let size_bytes = probe["format"]["size"]
-        .as_str()
-        .and_then(|s| s.parse().ok())
-        .or_else(|| probe["format"]["size"].as_u64())
-        .unwrap_or(0);
-    let streams = probe["streams"].as_array();
-    let video = streams.and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
-    let audio = streams.and_then(|streams| streams.iter().find(|s| s["codec_type"] == "audio"));
-    let width = video.and_then(|s| s["width"].as_u64()).unwrap_or(0) as u32;
-    let height = video.and_then(|s| s["height"].as_u64()).unwrap_or(0) as u32;
+    let video = first_stream(probe, "video");
+    let audio = first_stream(probe, "audio");
+    let width = stream_u32(video, "width");
+    let height = stream_u32(video, "height");
     let rotate_deg = video.map(rotate_deg).unwrap_or(0);
     let (display_width, display_height) = display_size(width, height, rotate_deg);
     MediaInfo {
-        duration_s,
+        duration_s: json_number(&probe["format"]["duration"]).unwrap_or(0.0),
         width,
         height,
-        size_bytes,
-        video_codec: video
-            .and_then(|s| s["codec_name"].as_str())
-            .unwrap_or("")
-            .to_string(),
-        audio_codec: audio
-            .and_then(|s| s["codec_name"].as_str())
-            .unwrap_or("")
-            .to_string(),
-        fps: video
-            .and_then(|s| s["avg_frame_rate"].as_str())
-            .unwrap_or("")
-            .to_string(),
+        size_bytes: probe["format"]["size"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .or_else(|| probe["format"]["size"].as_u64())
+            .unwrap_or(0),
+        video_codec: stream_str(video, "codec_name"),
+        audio_codec: stream_str(audio, "codec_name"),
+        fps: stream_str(video, "avg_frame_rate"),
         has_video: video.is_some(),
         has_audio: audio.is_some(),
         rotate_deg,
         display_width,
         display_height,
     }
+}
+
+fn first_stream<'a>(
+    probe: &'a serde_json::Value,
+    codec_type: &str,
+) -> Option<&'a serde_json::Value> {
+    probe["streams"]
+        .as_array()
+        .and_then(|streams| streams.iter().find(|s| s["codec_type"] == codec_type))
+}
+
+fn stream_str(stream: Option<&serde_json::Value>, key: &str) -> String {
+    stream
+        .and_then(|s| s[key].as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn stream_u32(stream: Option<&serde_json::Value>, key: &str) -> u32 {
+    stream.and_then(|s| s[key].as_u64()).unwrap_or(0) as u32
 }
 
 fn rotate_deg(video: &serde_json::Value) -> u32 {
