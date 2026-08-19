@@ -299,7 +299,13 @@ fn main() {
 
     match cli.command {
         Command::Schema => schema::print(),
-        Command::Run { plan, workdir } => run_cmd(&plan, workdir.as_deref(), &ctx, cli.human),
+        Command::Run { plan, workdir } => run_cmd(
+            &plan,
+            workdir.as_deref(),
+            &ctx,
+            cli.human,
+            cli.hw.as_deref(),
+        ),
         Command::InstallSkill {
             provider,
             dirs,
@@ -348,7 +354,7 @@ fn usage_op() -> &'static str {
         .unwrap_or("ave")
 }
 
-fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool) {
+fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool, cli_hw: Option<&str>) {
     let text = if plan == "-" {
         use std::io::Read;
         let mut buf = String::new();
@@ -366,6 +372,24 @@ fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool) {
         Ok(p) => p,
         Err(e) => error::fail(error::Error::new("run", "bad_plan", e.to_string())),
     };
+    let mut ctx = Ctx {
+        hw: if cli_hw.is_some() {
+            ctx.hw
+        } else {
+            match Hw::parse(parsed.hw.as_deref()) {
+                Ok(hw) => hw,
+                Err(err) => error::fail(err),
+            }
+        },
+        dry_run: ctx.dry_run,
+        no_overwrite: ctx.no_overwrite,
+        copy_only: ctx.copy_only,
+        ffmpeg: ctx.ffmpeg.clone(),
+        ffprobe: ctx.ffprobe.clone(),
+        verbose: ctx.verbose,
+        progress: ctx.progress,
+    };
+    let ctx = &ctx;
 
     let mut ops = Vec::new();
     for step in &parsed.steps {
@@ -418,6 +442,7 @@ fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool) {
 #[derive(serde::Deserialize)]
 struct PlanFile {
     steps: Vec<serde_json::Value>,
+    hw: Option<String>,
 }
 
 fn to_op(command: Command) -> Result<Op, error::Error> {
