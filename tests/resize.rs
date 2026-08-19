@@ -168,6 +168,51 @@ fn resize_video_only_writes_output() {
     assert!(dir.path().join("out.mp4").exists());
 }
 
+fn write_fixture(path: &std::path::Path) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=320x240:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:duration=1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-pix_fmt",
+            "yuv420p",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg");
+    assert!(
+        status.status.success(),
+        "ffmpeg fixture failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
+#[test]
+fn resize_with_audio_dry_run_keeps_audio_copy() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("in.mp4"));
+    let argv = resize_dry_run_argv(&dir, "in.mp4");
+    assert!(
+        argv.windows(2).any(|w| w == ["-c:a", "copy"]),
+        "resize with audio must keep -c:a copy: {argv:?}"
+    );
+}
+
 #[test]
 fn resize_without_dry_run_does_not_fake_success() {
     let dir = tempfile::tempdir().unwrap();
