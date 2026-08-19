@@ -18,7 +18,7 @@ use op::{
 };
 
 #[derive(Parser)]
-#[command(name = "ave")]
+#[command(name = "ave", version)]
 struct Cli {
     #[arg(long, global = true)]
     dry_run: bool,
