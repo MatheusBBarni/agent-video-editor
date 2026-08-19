@@ -306,3 +306,29 @@ fn resize_fit_stretch_width_height_dry_run_scales_without_pad() {
         "stretch should not preserve aspect: {vf}"
     );
 }
+
+#[test]
+fn resize_width_height_dry_run_scales_and_pads() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let vf = resize_vf(
+        &dir,
+        &[
+            "resize",
+            "in.mp4",
+            "--width",
+            "640",
+            "--height",
+            "360",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(
+        vf.contains("640:360"),
+        "explicit size should target 640x360: {vf}"
+    );
+    assert!(vf.contains("pad="), "default resize should pad: {vf}");
+}
