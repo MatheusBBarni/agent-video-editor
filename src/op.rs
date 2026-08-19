@@ -381,21 +381,16 @@ impl Op {
             "resize" => {
                 let _ = req("input")?;
                 let _ = req("output")?;
-                if step["preset"].as_str().is_none()
-                    && (step["width"].as_u64().is_none() || step["height"].as_u64().is_none())
-                {
-                    return Err(Error::new(
-                        "run",
-                        "missing_field",
-                        "resize requires preset or width and height",
-                    ));
-                }
+                let preset = step["preset"].as_str().map(str::to_string);
+                let width = step["width"].as_u64().map(|n| n as u32);
+                let height = step["height"].as_u64().map(|n| n as u32);
+                resize_size_pair(preset.as_deref(), width, height, "run")?;
                 Ok(Self::Resize {
                     input: req("input")?,
                     output: req("output")?,
-                    preset: step["preset"].as_str().map(str::to_string),
-                    width: step["width"].as_u64().map(|n| n as u32),
-                    height: step["height"].as_u64().map(|n| n as u32),
+                    preset,
+                    width,
+                    height,
                     fit: parse_fit(step["fit"].as_str(), "run")?,
                 })
             }
@@ -548,23 +543,30 @@ impl Op {
         else {
             return Err(Error::new(self.name(), "missing_preset", "not a resize op"));
         };
-        if let Some(preset) = preset {
-            return recipes::preset_size(preset).ok_or_else(|| {
-                Error::new(
-                    self.name(),
-                    "unknown_preset",
-                    format!("unknown preset: {preset}"),
-                )
-            });
-        }
-        match (width, height) {
-            (Some(w), Some(h)) => Ok((*w, *h)),
-            _ => Err(Error::new(
-                self.name(),
-                "missing_preset",
-                "resize requires --preset or --width and --height",
-            )),
-        }
+        resize_size_pair(preset.as_deref(), *width, *height, self.name())
+    }
+}
+
+fn resize_size_pair(
+    preset: Option<&str>,
+    width: Option<u32>,
+    height: Option<u32>,
+    op: &'static str,
+) -> Result<(u32, u32), Error> {
+    match (preset, width, height) {
+        (Some(preset), None, None) => recipes::preset_size(preset)
+            .ok_or_else(|| Error::new(op, "unknown_preset", format!("unknown preset: {preset}"))),
+        (None, Some(w), Some(h)) => Ok((w, h)),
+        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(Error::new(
+            op,
+            "conflicting_fields",
+            "resize accepts only one of preset or width and height",
+        )),
+        _ => Err(Error::new(
+            op,
+            "missing_preset",
+            "resize requires --preset or --width and --height",
+        )),
     }
 }
 
