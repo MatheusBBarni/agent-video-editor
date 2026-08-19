@@ -1,6 +1,6 @@
 mod common;
 
-use common::ave_json;
+use common::{ave_json, ffmpeg_available, write_fixture};
 use std::fs;
 
 #[test]
@@ -56,6 +56,36 @@ fn crop_without_edges_fails_missing_field() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["op"], "crop");
     assert_eq!(v["error"], "missing_field");
+    assert!(v.get("ffmpeg").is_none());
+    assert!(!dir.path().join("out.mp4").exists());
+}
+
+#[test]
+fn crop_bottom_larger_than_height_fails_bad_range() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("in.mp4"));
+
+    let (ok, v) = ave_json(
+        &dir,
+        &[
+            "crop",
+            "in.mp4",
+            "--bottom",
+            "240",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ],
+    );
+    assert!(!ok, "{v}");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "crop");
+    assert_eq!(v["error"], "bad_range");
     assert!(v.get("ffmpeg").is_none());
     assert!(!dir.path().join("out.mp4").exists());
 }
