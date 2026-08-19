@@ -8,7 +8,7 @@ mod skill;
 use clap::{Parser, Subcommand};
 use error::{RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, require_output};
+use op::{Op, TrimEnd, require_output};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -34,7 +34,9 @@ enum Command {
         #[arg(long)]
         from: String,
         #[arg(long)]
-        to: String,
+        to: Option<String>,
+        #[arg(long)]
+        duration: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
         #[arg(long)]
@@ -229,12 +231,13 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             from,
             to,
+            duration,
             output,
             accurate,
         } => Ok(Op::Trim {
             input,
             from,
-            to,
+            end: TrimEnd::exclusive(to, duration, "trim")?,
             output: require_output("trim", output)?,
             accurate,
         }),

@@ -57,7 +57,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 |---|---|---|
 | `info` | `<in>` | probe only |
 | `doctor` | | ffmpeg/ffprobe versions |
-| `trim` | `<in> --from T --to T -o OUT` | `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
+| `trim` | `<in> --from T --to T -o OUT` | or `--duration T` instead of `--to`. `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy if shapes match |
 | `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |

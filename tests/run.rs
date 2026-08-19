@@ -298,3 +298,112 @@ fn run_unknown_op_fails_before_any_step() {
         "unknown op must fail before running any step"
     );
 }
+
+#[test]
+fn run_trim_to_and_duration_conflict_fails_before_any_step() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {"op": "trim", "input": "in.mp4", "from": "0", "to": "10", "output": "a.mp4"},
+            {"op": "trim", "input": "in.mp4", "from": "10", "to": "20", "duration": "5", "output": "b.mp4"}
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
+    assert!(
+        v.get("steps").is_none(),
+        "conflict must fail before running any step"
+    );
+    assert!(
+        !dir.path().join("a.mp4").exists(),
+        "must not write step 1 output when a later step conflicts"
+    );
+}
+
+#[test]
+fn run_trim_without_to_or_duration_fails_missing_field() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","output":"out.mp4"}]}"#;
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "-", "--dry-run"])
+        .write_stdin(plan)
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "missing_field");
+}
+
+#[test]
+fn run_trim_numeric_duration_uses_t_not_to() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    let plan =
+        r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","duration":5,"output":"out.mp4"}]}"#;
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "-", "--dry-run"])
+        .write_stdin(plan)
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    let argv = v["steps"][0]["ffmpeg"].as_array().expect("ffmpeg argv");
+    assert!(
+        argv.iter().any(|x| x == "-t"),
+        "numeric duration must become ffmpeg -t"
+    );
+    assert!(
+        argv.iter().any(|x| x == "5" || x == "5.0"),
+        "numeric duration must appear as 5 or 5.0"
+    );
+    assert!(
+        !argv.iter().any(|x| x == "-to"),
+        "numeric duration must not emit ffmpeg -to"
+    );
+}
+
+#[test]
+fn run_trim_numeric_to_and_duration_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","to":20,"duration":5,"output":"out.mp4"}]}"#;
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "-", "--dry-run"])
+        .write_stdin(plan)
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
+}

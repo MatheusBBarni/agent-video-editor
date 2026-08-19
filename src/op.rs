@@ -2,11 +2,49 @@ use crate::error::Error;
 use crate::recipes;
 
 #[derive(Debug, Clone)]
+pub enum TrimEnd {
+    To(String),
+    Duration(String),
+}
+
+impl TrimEnd {
+    pub fn exclusive(
+        to: Option<String>,
+        duration: Option<String>,
+        op: &'static str,
+    ) -> Result<Self, Error> {
+        let to = to.filter(|s| !s.is_empty());
+        let duration = duration.filter(|s| !s.is_empty());
+        match (to, duration) {
+            (Some(to), None) => Ok(Self::To(to)),
+            (None, Some(duration)) => Ok(Self::Duration(duration)),
+            (Some(_), Some(_)) => Err(Error::new(
+                op,
+                "conflicting_fields",
+                "trim accepts only one of to or duration",
+            )),
+            (None, None) => Err(Error::new(
+                op,
+                "missing_field",
+                "trim requires to or duration",
+            )),
+        }
+    }
+
+    pub fn ffmpeg_flag(&self) -> (&'static str, &str) {
+        match self {
+            Self::To(value) => ("-to", value),
+            Self::Duration(value) => ("-t", value),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Op {
     Trim {
         input: String,
         from: String,
-        to: String,
+        end: TrimEnd,
         output: String,
         accurate: bool,
     },
@@ -135,25 +173,17 @@ impl Op {
                 })
         };
         match op {
-            "trim" => {
-                let _ = req("input")?;
-                let _ = req("from")?;
-                if step["to"].as_str().is_none() && step["duration"].as_str().is_none() {
-                    return Err(Error::new(
-                        "run",
-                        "missing_field",
-                        "trim requires to or duration",
-                    ));
-                }
-                let _ = req("output")?;
-                Ok(Self::Trim {
-                    input: req("input")?,
-                    from: req("from")?,
-                    to: step["to"].as_str().unwrap_or("").to_string(),
-                    output: req("output")?,
-                    accurate: step["accurate"].as_bool().unwrap_or(false),
-                })
-            }
+            "trim" => Ok(Self::Trim {
+                input: req("input")?,
+                from: req("from")?,
+                end: TrimEnd::exclusive(
+                    json_string_or_number(&step["to"]),
+                    json_string_or_number(&step["duration"]),
+                    "run",
+                )?,
+                output: req("output")?,
+                accurate: step["accurate"].as_bool().unwrap_or(false),
+            }),
             "concat" => {
                 let inputs = step["inputs"]
                     .as_array()
@@ -284,6 +314,13 @@ impl Op {
             )),
         }
     }
+}
+
+fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
+    if let Some(s) = value.as_str().filter(|s| !s.is_empty()) {
+        return Some(s.to_string());
+    }
+    value.as_number().map(ToString::to_string)
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
