@@ -33,7 +33,7 @@ fn compress_dry_run_uses_crf_23_medium() {
         "default preset medium: {argv:?}"
     );
     assert!(
-        argv.windows(2).any(|w| w == ["-c:a", "copy"]),
-        "compress should copy audio: {argv:?}"
+        !argv.windows(2).any(|w| w == ["-c:a", "copy"]),
+        "unprobeable compress dry-run omits -c:a copy: {argv:?}"
     );
 }

@@ -178,8 +178,6 @@ fn run_dry_run_accurate_trim_uses_accurate_seek_recipe() {
             "23",
             "-preset",
             "medium",
-            "-c:a",
-            "aac",
             "-movflags",
             "+faststart",
             "out.mp4"

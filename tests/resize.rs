@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -72,6 +75,84 @@ fn resize_tiktok_dry_run_scale_and_pads() {
         "should preserve aspect: {vf}"
     );
     assert!(vf.contains("pad="), "should pad: {vf}");
+}
+
+fn resize_dry_run_argv(dir: &tempfile::TempDir, input: &str) -> Vec<String> {
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "resize",
+            input,
+            "--preset",
+            "square",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn resize_video_only_dry_run_omits_audio_copy() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_video_only_fixture(&dir.path().join("in.mp4"));
+    let argv = resize_dry_run_argv(&dir, "in.mp4");
+    assert!(
+        !argv.windows(2).any(|w| w == ["-c:a", "copy"]),
+        "video-only resize must omit -c:a copy: {argv:?}"
+    );
+}
+
+#[test]
+fn resize_video_only_writes_output() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_video_only_fixture(&dir.path().join("in.mp4"));
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["resize", "in.mp4", "--preset", "square", "-o", "out.mp4"])
+        .assert()
+        .success();
+
+    assert!(dir.path().join("out.mp4").exists());
+}
+
+#[test]
+fn resize_with_audio_dry_run_keeps_audio_copy() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("in.mp4"));
+    let argv = resize_dry_run_argv(&dir, "in.mp4");
+    assert!(
+        argv.windows(2).any(|w| w == ["-c:a", "copy"]),
+        "resize with audio must keep -c:a copy: {argv:?}"
+    );
 }
 
 #[test]

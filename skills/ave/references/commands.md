@@ -52,6 +52,8 @@ ave extract-audio clip.mp4 -o audio.mp3
 ave extract-audio clip.mp4 --format wav -o audio.wav
 ```
 
+Fails with `no_audio` when the input probes and has no audio stream.
+
 ## replace-audio
 
 ```bash
