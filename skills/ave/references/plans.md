@@ -35,6 +35,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | `fade` | `input`, `output`, and at least one of `in` / `out` | |
 | `volume` | `input`, `db`, `output` | |
 | `rotate` | `input`, `deg`, `output` | |
+| `crop` | `input`, `output`, and at least one of `top` / `bottom` / `left` / `right` | |
 | `speed` | `input`, `output`, `factor` | |
 | `extract-audio` | `input`, `output` | `format` |
 | `replace-audio` | `input`, `output`, and one of `mute` / `audio` / `mix` | |
@@ -59,6 +60,19 @@ ave cut-out in.mp4 --from 12 --to 18 -o out.mp4
 ```
 
 Do not invert the hole into keep-ranges or guess `end` from `info`.
+
+## Drop a taskbar then 1080p
+
+```json
+{
+  "steps": [
+    {"op": "crop", "input": "game.mp4", "bottom": 40, "output": "cropped.mp4"},
+    {"op": "resize", "input": "cropped.mp4", "preset": "youtube", "output": "out.mp4"}
+  ]
+}
+```
+
+Do not invent `crop=W:H:X:Y`. After `crop`, call `resize` if you need a preset.
 
 ## Trim then TikTok
 

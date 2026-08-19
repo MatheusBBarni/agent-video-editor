@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, convert, frame, frames, captions, text, fade, volume, and rotate
+- Verbs for trim, cut-out, keep, concat, resize, crop, speed, extract/replace audio, overlay, compress, convert, frame, frames, captions, text, fade, volume, and rotate
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -136,6 +136,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `fade` | `--in` and/or `--out` seconds |
 | `volume` | `--db` signed dB |
 | `rotate` | `--deg 90` / `180` / `270` (transpose, not metadata) |
+| `crop` | Drop `--top` / `--bottom` / `--left` / `--right` pixel strips (taskbar, chrome) |
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |
 | `extract-audio` | Pull audio. Format from `--format` or the output extension |
 | `replace-audio` | `--mute`, `--audio FILE`, or `--mix FILE` |
@@ -147,7 +148,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 
 Resize presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080. `--fit pad` letterboxes; `crop` fills; `stretch` ignores aspect.
 
-Trim and concat copy streams when they can. Resize, speed, overlay, compress, GIF convert, captions, text, fade, volume, rotate, and frame always re-encode (`--copy-only` fails).
+Trim and concat copy streams when they can. Resize, speed, overlay, compress, GIF convert, captions, text, fade, volume, rotate, crop, and frame always re-encode (`--copy-only` fails).
 
 This will not color grade, cut a multi-cam show, or upload to YouTube.
 

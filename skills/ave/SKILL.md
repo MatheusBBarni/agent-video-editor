@@ -5,7 +5,7 @@ description: >
   cutting, concatenating, resizing for TikTok/YouTube/Instagram, changing speed,
   extracting or replacing audio, overlaying a logo, compressing, converting
   (including GIF), burning captions, drawing a title, fading, changing volume,
-  rotating, grabbing a still, probing video info, or running a multi-step edit plan.
+  rotating, cropping edge strips (taskbar / browser chrome), grabbing a still, probing video info, or running a multi-step edit plan.
   Prefer ave over raw ffmpeg. Do not invent ffmpeg flags.
 ---
 
@@ -35,7 +35,7 @@ ave install-skill --provider all --global
 2. Prefer the file the user named. Else the newest video in cwd.
 3. `ave info <file>` — recap duration, coded size, codecs, fps, audio, rotation, display size.
 4. Vague ask → ask what to change. Concrete ask → plan, then run.
-5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Several other verbs → one `ave run` plan. Review many timestamps → `frames --at` / `--every`, not an `fps=` dump.
+5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Hide a taskbar or browser chrome → `crop --bottom N` (or `--top` / `--left` / `--right`), not a free-form `crop=W:H:X:Y`. Then `resize` if you need a preset. Several other verbs → one `ave run` plan. Review many timestamps → `frames --at` / `--every`, not an `fps=` dump.
 6. `--dry-run` first when unsure. Then run for real.
 7. Reply with output path, duration, resolution, size from the JSON.
 
@@ -76,6 +76,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `fade` | `<in> --in SEC --out SEC -o OUT` | at least one of `--in` / `--out` |
 | `volume` | `<in> --db N -o OUT` | signed dB (`-6`, `3`) |
 | `rotate` | `<in> --deg 90 -o OUT` | `90` `180` `270` only; re-encodes with `transpose` |
+| `crop` | `<in> --bottom N -o OUT` | or `--top` / `--left` / `--right` (pixels, coded frame). At least one edge. Empties the frame → `bad_range`. Not `resize --fit crop` |
 | `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` / `frames` steps |
 
 Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
@@ -95,7 +96,7 @@ Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 - `trim` / `concat`: stream-copy by default.
 - `trim --accurate` / `"accurate": true`: input `-ss` + `-accurate_seek` + re-encode. Not `-c copy`. Do not move `-ss` after `-i`.
 - `concat`: probe every input; mismatch or any failed probe (including mixed `rotate_deg`) → re-encode. ffmpeg autorotates on that transcode. Matching copy remuxes through MPEG-TS so DTS stays monotonic.
-- Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`, `captions`, `text`, `fade`, `volume`, `rotate`, `frame`.
+- Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`, `captions`, `text`, `fade`, `volume`, `rotate`, `crop`, `frame`.
 
 ## Do not
 
