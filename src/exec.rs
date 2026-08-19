@@ -319,15 +319,25 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             image,
             output,
             position,
+            x,
+            y,
         } => {
-            let expr = recipes::overlay_expr(position.as_deref().unwrap_or("top-right"))
-                .ok_or_else(|| {
-                    Error::new(
-                        "overlay",
-                        "unknown_position",
-                        format!("unknown position: {}", position.clone().unwrap_or_default()),
-                    )
-                })?;
+            let owned;
+            let expr = match (x, y) {
+                (Some(x), Some(y)) => {
+                    owned = recipes::overlay_xy(*x, *y);
+                    owned.as_str()
+                }
+                _ => recipes::overlay_expr(position.as_deref().unwrap_or("top-right")).ok_or_else(
+                    || {
+                        Error::new(
+                            "overlay",
+                            "unknown_position",
+                            format!("unknown position: {}", position.clone().unwrap_or_default()),
+                        )
+                    },
+                )?,
+            };
             Ok(reencode_job(recipes::with_bin(
                 recipes::overlay_argv(input, image, output, expr, audio.unwrap_or(false)),
                 bin,

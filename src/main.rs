@@ -122,6 +122,10 @@ enum Command {
         image: String,
         #[arg(long)]
         position: Option<String>,
+        #[arg(long)]
+        x: Option<i32>,
+        #[arg(long)]
+        y: Option<i32>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -483,12 +487,16 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             image,
             position,
+            x,
+            y,
             output,
         } => Ok(Op::Overlay {
             input,
             image,
             output: require_output("overlay", output)?,
             position,
+            x,
+            y,
         }),
         Command::ReplaceAudio {
             input,

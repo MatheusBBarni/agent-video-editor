@@ -133,6 +133,8 @@ pub enum Op {
         image: String,
         output: String,
         position: Option<String>,
+        x: Option<i32>,
+        y: Option<i32>,
     },
     Compress {
         input: String,
@@ -433,6 +435,8 @@ impl Op {
                 image: req("image")?,
                 output: req("output")?,
                 position: step["position"].as_str().map(str::to_string),
+                x: json_i32(&step["x"]),
+                y: json_i32(&step["y"]),
             }),
             "compress" => Ok(Self::Compress {
                 input: req("input")?,
@@ -655,6 +659,13 @@ fn parse_nonneg_finite(raw: &str) -> Option<f64> {
 
 fn json_u32(value: &serde_json::Value) -> Option<u32> {
     value.as_u64().map(|n| n as u32)
+}
+
+fn json_i32(value: &serde_json::Value) -> Option<i32> {
+    value
+        .as_i64()
+        .and_then(|n| i32::try_from(n).ok())
+        .or_else(|| value.as_u64().and_then(|n| i32::try_from(n).ok()))
 }
 
 fn json_string_or_number(value: &serde_json::Value) -> Option<String> {

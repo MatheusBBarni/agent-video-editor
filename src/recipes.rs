@@ -295,6 +295,10 @@ pub fn overlay_expr(position: &str) -> Option<&'static str> {
     })
 }
 
+pub fn overlay_xy(x: i32, y: i32) -> String {
+    format!("overlay={x}:{y}")
+}
+
 pub fn overlay_argv(
     input: &str,
     image: &str,
