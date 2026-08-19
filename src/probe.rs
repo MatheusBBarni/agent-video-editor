@@ -193,11 +193,10 @@ pub fn probe_or_err(ffprobe_bin: &str, input: &str) -> Result<serde_json::Value,
     let output = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .output()
-        .map_err(|e| Error::new("info", "ffprobe_failed", e.to_string()))?;
+        .map_err(|e| Error::ffprobe("info", e.to_string()))?;
     if !output.status.success() {
-        return Err(Error::new(
+        return Err(Error::ffprobe(
             "info",
-            "ffprobe_failed",
             String::from_utf8_lossy(&output.stderr),
         ));
     }

@@ -15,6 +15,40 @@ impl Error {
             message: message.into(),
         }
     }
+
+    pub fn ffmpeg(op: &'static str, stderr: impl AsRef<str>) -> Self {
+        Self::new(op, "ffmpeg_failed", summarize_tool_stderr(stderr.as_ref()))
+    }
+
+    pub fn ffprobe(op: &'static str, stderr: impl AsRef<str>) -> Self {
+        Self::new(op, "ffprobe_failed", summarize_tool_stderr(stderr.as_ref()))
+    }
+}
+
+const TOOL_MESSAGE_MAX: usize = 2048;
+
+fn summarize_tool_stderr(stderr: &str) -> String {
+    let useful = stderr
+        .lines()
+        .rev()
+        .find(|line| {
+            line.contains("Error") || line.contains("Invalid") || line.contains("No such file")
+        })
+        .or_else(|| stderr.lines().rev().find(|line| !line.trim().is_empty()))
+        .unwrap_or(stderr)
+        .trim();
+    truncate_bytes(useful, TOOL_MESSAGE_MAX)
+}
+
+fn truncate_bytes(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    s[..end].to_string()
 }
 
 #[derive(Serialize)]

@@ -92,7 +92,7 @@ fn execute_assuming(
             .as_deref()
             .unwrap_or(std::slice::from_ref(&job.argv));
         let result = cmds.iter().try_for_each(|cmd| {
-            run_ffmpeg(cmd).map_err(|e| Error::new(name, "ffmpeg_failed", e))
+            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e))
         });
         for path in &job.cleanup {
             let _ = std::fs::remove_file(path);

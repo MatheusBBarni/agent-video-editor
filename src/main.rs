@@ -174,39 +174,23 @@ fn main() {
 }
 
 fn usage_op() -> &'static str {
-    const OPS: &[&str] = &[
-        "trim",
-        "doctor",
-        "run",
-        "info",
-        "concat",
-        "resize",
-        "convert",
-        "compress",
-        "overlay",
-        "replace-audio",
-        "extract-audio",
-        "speed",
-        "install-skill",
-    ];
     std::env::args()
         .skip(1)
-        .find(|arg| OPS.contains(&arg.as_str()))
-        .map(|arg| match arg.as_str() {
-            "trim" => "trim",
-            "doctor" => "doctor",
-            "run" => "run",
-            "info" => "info",
-            "concat" => "concat",
-            "resize" => "resize",
-            "convert" => "convert",
-            "compress" => "compress",
-            "overlay" => "overlay",
-            "replace-audio" => "replace-audio",
-            "extract-audio" => "extract-audio",
-            "speed" => "speed",
-            "install-skill" => "install-skill",
-            _ => "ave",
+        .find_map(|arg| match arg.as_str() {
+            "trim" => Some("trim"),
+            "doctor" => Some("doctor"),
+            "run" => Some("run"),
+            "info" => Some("info"),
+            "concat" => Some("concat"),
+            "resize" => Some("resize"),
+            "convert" => Some("convert"),
+            "compress" => Some("compress"),
+            "overlay" => Some("overlay"),
+            "replace-audio" => Some("replace-audio"),
+            "extract-audio" => Some("extract-audio"),
+            "speed" => Some("speed"),
+            "install-skill" => Some("install-skill"),
+            _ => None,
         })
         .unwrap_or("ave")
 }
