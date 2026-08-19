@@ -45,7 +45,3 @@ pub fn plan_schema() -> Value {
 pub fn print() {
     println!("{}", serde_json::to_string(&plan_schema()).expect("json"));
 }
-
-pub fn allowed_ops() -> &'static [&'static str] {
-    OPS
-}

@@ -28,7 +28,7 @@ fn rewrite_op(op: &mut Op, root: &Path, produced: &mut HashSet<String>) {
         | Op::Crop { input, output, .. } => rewrite_io(vec![input], output, root, produced),
         Op::Concat { inputs, output } => {
             let refs: Vec<&mut String> = inputs.iter_mut().collect();
-            rewrite_listed(refs, output, root, produced);
+            rewrite_io(refs, output, root, produced);
         }
         Op::ReplaceAudio {
             input,
@@ -44,7 +44,7 @@ fn rewrite_op(op: &mut Op, root: &Path, produced: &mut HashSet<String>) {
             if let Some(mix) = mix {
                 extras.push(mix);
             }
-            rewrite_listed(extras, output, root, produced);
+            rewrite_io(extras, output, root, produced);
         }
         Op::Overlay {
             input,
@@ -76,15 +76,6 @@ fn rewrite_op(op: &mut Op, root: &Path, produced: &mut HashSet<String>) {
 }
 
 fn rewrite_io(
-    inputs: Vec<&mut String>,
-    output: &mut String,
-    root: &Path,
-    produced: &mut HashSet<String>,
-) {
-    rewrite_listed(inputs, output, root, produced);
-}
-
-fn rewrite_listed(
     inputs: Vec<&mut String>,
     output: &mut String,
     root: &Path,
