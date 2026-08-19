@@ -1,6 +1,6 @@
 # ave run plans
 
-Use `ave run` when the job is more than one verb. Delete a middle section with `cut-out`, not two trims + concat.
+Use `ave run` when the job is more than one verb. One hole → `cut-out`. N cuts → `keep --ranges`, not N trims + concat.
 
 ```bash
 ave run plan.json
@@ -26,6 +26,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 |---|---|---|
 | `trim` | `input`, `from`, `output`, and exactly one of `to` or `duration` | `accurate` |
 | `cut-out` | `input`, `from`, `to`, `output` | `accurate` |
+| `keep` | `input`, `ranges`, `output` | `accurate` |
 | `concat` | `inputs` (≥2), `output` | |
 | `resize` | `input`, `output`, `preset` **or** `width`+`height` | |
 | `speed` | `input`, `output`, `factor` | |
