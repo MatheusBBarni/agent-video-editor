@@ -1,6 +1,7 @@
 mod detect;
 mod error;
 mod exec;
+mod ffmpeg_run;
 mod frames;
 mod op;
 mod overlay;
@@ -36,6 +37,8 @@ struct Cli {
     human: bool,
     #[arg(long, global = true)]
     verbose: bool,
+    #[arg(long, global = true)]
+    progress: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -278,6 +281,7 @@ fn main() {
         ffmpeg: cli.ffmpeg.clone().unwrap_or_else(|| "ffmpeg".into()),
         ffprobe: cli.ffprobe.clone().unwrap_or_else(|| "ffprobe".into()),
         verbose: cli.verbose,
+        progress: cli.progress,
     };
 
     match cli.command {

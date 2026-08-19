@@ -56,7 +56,7 @@ pub fn execute(input: &str, kind: Kind, ctx: &Ctx) -> Result<Outcome, Error> {
             Kind::Scenes => Some(probed_duration(&ctx.ffprobe, input, "detect")?),
             Kind::Silence | Kind::Black => None,
         };
-        let log = run_ffmpeg(&argv, ctx.verbose).map_err(|e| Error::ffmpeg("detect", e))?;
+        let log = run_ffmpeg(&argv, ctx.verbose, None).map_err(|e| Error::ffmpeg("detect", e))?;
         parse_segments(kind, &log, duration)
     };
     Ok(Outcome::Detect(DetectEnvelope {
