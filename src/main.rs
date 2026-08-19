@@ -34,6 +34,8 @@ struct Cli {
     ffprobe: Option<String>,
     #[arg(long, global = true)]
     human: bool,
+    #[arg(long, global = true)]
+    verbose: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -275,6 +277,7 @@ fn main() {
         copy_only: cli.copy_only,
         ffmpeg: cli.ffmpeg.clone().unwrap_or_else(|| "ffmpeg".into()),
         ffprobe: cli.ffprobe.clone().unwrap_or_else(|| "ffprobe".into()),
+        verbose: cli.verbose,
     };
 
     match cli.command {

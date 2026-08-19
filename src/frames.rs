@@ -99,7 +99,7 @@ pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
             )
         })?;
         for cmd in &passes {
-            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg("frames", e))?;
+            run_ffmpeg(cmd, ctx.verbose).map_err(|e| Error::ffmpeg("frames", e))?;
         }
     }
     Ok(Outcome::Frames(FramesEnvelope {

@@ -9,6 +9,7 @@ pub struct Ctx {
     pub copy_only: bool,
     pub ffmpeg: String,
     pub ffprobe: String,
+    pub verbose: bool,
 }
 
 pub enum Outcome {
@@ -112,7 +113,7 @@ fn execute_assuming(
             .as_deref()
             .unwrap_or(std::slice::from_ref(&job.argv));
         let result = cmds.iter().try_for_each(|cmd| {
-            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg(name, e))?;
+            run_ffmpeg(cmd, ctx.verbose).map_err(|e| Error::ffmpeg(name, e))?;
             Ok(())
         });
         for path in &job.cleanup {
@@ -888,12 +889,15 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<String, String> {
+pub(crate) fn run_ffmpeg(argv: &[String], verbose: bool) -> Result<String, String> {
     let output = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .output()
         .map_err(|e| e.to_string())?;
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    if verbose && !stderr.is_empty() {
+        eprint!("{stderr}");
+    }
     if output.status.success() {
         Ok(stderr)
     } else {
