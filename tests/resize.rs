@@ -149,6 +149,26 @@ fn resize_video_only_dry_run_omits_audio_copy() {
 }
 
 #[test]
+fn resize_video_only_writes_output() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_video_only_fixture(&dir.path().join("in.mp4"));
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["resize", "in.mp4", "--preset", "square", "-o", "out.mp4"])
+        .assert()
+        .success();
+
+    assert!(dir.path().join("out.mp4").exists());
+}
+
+#[test]
 fn resize_without_dry_run_does_not_fake_success() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
