@@ -1,26 +1,9 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg, require_ffmpeg};
 use serde_json::Value;
 use std::fs;
-
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn ffmpeg(args: &[&str]) {
-    let status = std::process::Command::new("ffmpeg")
-        .args(args)
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
 
 fn write_secs(path: &std::path::Path, secs: u32) {
     let video = format!("testsrc=duration={secs}:size=320x240:rate=30");
@@ -59,8 +42,7 @@ fn ave_json(dir: &tempfile::TempDir, args: &[&str]) -> (bool, Value) {
 
 #[test]
 fn cut_out_dry_run_prints_trim_and_concat_passes() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -151,8 +133,7 @@ fn cut_out_unprobeable_dry_run_fails_ffprobe() {
 
 #[test]
 fn cut_out_writes_kept_ranges_and_leaves_input() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -249,8 +230,7 @@ fn cut_out_missing_output_fails() {
 
 #[test]
 fn run_cut_out_dry_run_matches_verb() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

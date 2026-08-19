@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{require_ffmpeg, write_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -341,52 +344,14 @@ fn run_dry_run_accurate_trim_uses_accurate_seek_recipe() {
     );
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=3:size=320x240:rate=30",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=3",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
 #[test]
 fn run_stops_on_failure_and_keeps_earlier_output() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"));
+    write_fixture(&dir.path().join("clip.mp4"), 3.0, (320, 240), true);
     fs::write(
         dir.path().join("plan.json"),
         r#"{
@@ -419,13 +384,12 @@ fn run_stops_on_failure_and_keeps_earlier_output() {
 
 #[test]
 fn run_unknown_op_fails_before_any_step() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"));
+    write_fixture(&dir.path().join("clip.mp4"), 3.0, (320, 240), true);
     fs::write(
         dir.path().join("plan.json"),
         r#"{

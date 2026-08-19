@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ave_json, ffmpeg_available, write_clip};
+use common::{ave_json, require_ffmpeg, write_clip};
 use std::fs;
 
 #[test]
@@ -59,8 +59,7 @@ fn crop_without_edges_fails_missing_field() {
 
 #[test]
 fn crop_bottom_larger_than_height_fails_bad_range() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

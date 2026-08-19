@@ -1,7 +1,7 @@
 mod common;
 
 use assert_cmd::Command;
-use common::{ffmpeg, ffmpeg_available, write_fixture};
+use common::{ffmpeg, require_ffmpeg, write_fixture};
 use serde_json::Value;
 use std::path::Path;
 
@@ -36,8 +36,7 @@ fn info_json(dir: &tempfile::TempDir, input: &str) -> Value {
 
 #[test]
 fn info_reports_duration_and_resolution() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -58,8 +57,7 @@ fn info_reports_duration_and_resolution() {
 
 #[test]
 fn info_reports_codecs_fps_audio_and_unrotated_display() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -94,8 +92,7 @@ fn info_reports_codecs_fps_audio_and_unrotated_display() {
 
 #[test]
 fn info_reports_empty_audio_on_video_only_file() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -111,8 +108,7 @@ fn info_reports_empty_audio_on_video_only_file() {
 
 #[test]
 fn info_swaps_display_size_when_rotate_is_90() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

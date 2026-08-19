@@ -1,7 +1,7 @@
 mod common;
 
 use assert_cmd::Command;
-use common::{ffmpeg_available, write_clip, write_video_only_fixture};
+use common::{require_ffmpeg, write_clip, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -124,8 +124,7 @@ fn resize_dry_run_argv(dir: &tempfile::TempDir, input: &str) -> Vec<String> {
 
 #[test]
 fn resize_video_only_dry_run_omits_audio_copy() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -140,8 +139,7 @@ fn resize_video_only_dry_run_omits_audio_copy() {
 
 #[test]
 fn resize_video_only_writes_output() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -160,8 +158,7 @@ fn resize_video_only_writes_output() {
 
 #[test]
 fn resize_with_audio_dry_run_keeps_audio_copy() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
