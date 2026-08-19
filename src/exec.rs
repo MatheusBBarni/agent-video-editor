@@ -87,22 +87,17 @@ fn execute_assuming(
     }
 
     if !ctx.dry_run {
-        if let Some(passes) = &job.passes {
-            for (i, pass) in passes.iter().enumerate() {
-                let result = run_ffmpeg(pass);
-                if i + 1 == passes.len() {
-                    for path in &job.cleanup {
-                        let _ = std::fs::remove_file(path);
-                    }
-                }
-                result.map_err(|e| Error::new(name, "ffmpeg_failed", e))?;
-            }
-        } else {
-            run_ffmpeg(&job.argv).map_err(|e| Error::new(name, "ffmpeg_failed", e))?;
-            for path in &job.cleanup {
-                let _ = std::fs::remove_file(path);
-            }
+        let cmds = job
+            .passes
+            .as_deref()
+            .unwrap_or(std::slice::from_ref(&job.argv));
+        let result = cmds.iter().try_for_each(|cmd| {
+            run_ffmpeg(cmd).map_err(|e| Error::new(name, "ffmpeg_failed", e))
+        });
+        for path in &job.cleanup {
+            let _ = std::fs::remove_file(path);
         }
+        result?;
     }
 
     let (duration_s, width, height, size_bytes) = if ctx.dry_run {
@@ -319,13 +314,14 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 .and_then(|e| e.to_str())
                 == Some("gif");
             if gif {
-                let (pass1, pass2) = recipes::gif_passes(input, output);
+                let palette = unique_temp_file("palette", "png");
+                let (pass1, pass2) = recipes::gif_passes(input, output, &palette);
                 let pass1 = recipes::with_bin(pass1, bin);
                 let pass2 = recipes::with_bin(pass2, bin);
                 Ok(Job {
                     argv: pass2.clone(),
                     passes: Some(vec![pass1, pass2]),
-                    cleanup: vec!["palette.png".into()],
+                    cleanup: vec![palette],
                     reencode: true,
                 })
             } else {
@@ -349,15 +345,22 @@ fn concat_can_copy(inputs: &[String], ffprobe_bin: &str) -> bool {
     shapes.is_empty() || (shapes.len() == inputs.len() && shapes.windows(2).all(|w| w[0] == w[1]))
 }
 
+fn unique_temp_file(kind: &str, ext: &str) -> String {
+    std::env::temp_dir()
+        .join(format!(
+            "ave-{kind}-{}-{}.{ext}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ))
+        .to_string_lossy()
+        .into_owned()
+}
+
 fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
-    let path = std::env::temp_dir().join(format!(
-        "ave-concat-{}-{}.txt",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
+    let path = unique_temp_file("concat", "txt");
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let mut body = String::new();
     for input in inputs {
@@ -365,7 +368,7 @@ fn write_concat_list(inputs: &[String]) -> Result<String, Error> {
         body.push_str(&format!("file '{escaped}'\n"));
     }
     std::fs::write(&path, body).map_err(|e| Error::new("concat", "concat_list", e.to_string()))?;
-    Ok(path.to_string_lossy().into_owned())
+    Ok(path)
 }
 
 fn same_file(a: &str, b: &str) -> bool {
