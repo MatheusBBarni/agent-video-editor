@@ -49,6 +49,24 @@ fn help_stays_human_and_succeeds() {
 }
 
 #[test]
+fn version_stays_human_and_prints_package_version() {
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .arg("--version")
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        serde_json::from_str::<Value>(stdout.trim()).is_err(),
+        "--version must not be a JSON object"
+    );
+    assert!(
+        stdout.contains("0.1.0"),
+        "--version should include the Cargo.toml version: {stdout}"
+    );
+}
+
+#[test]
 fn ffmpeg_failure_message_is_short_and_not_a_banner() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
