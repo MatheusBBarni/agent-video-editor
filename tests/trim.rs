@@ -75,6 +75,38 @@ fn trim_duration_dry_run_uses_t_not_to() {
 }
 
 #[test]
+fn trim_to_and_duration_conflict_fails_with_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("out.mp4");
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "10",
+            "--to",
+            "20",
+            "--duration",
+            "5",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
+    assert!(!output.exists(), "must not write output on conflict");
+}
+
+#[test]
 fn trim_without_output_fails_with_json_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
