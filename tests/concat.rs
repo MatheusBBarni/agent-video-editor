@@ -58,26 +58,9 @@ fn ffmpeg_available() -> bool {
         .unwrap_or(false)
 }
 
-fn write_fixture(path: &std::path::Path, size: &str) {
+fn ffmpeg(args: &[&str]) {
     let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            &format!("testsrc=duration=1:size={size}:rate=30"),
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=1",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
+        .args(args)
         .output()
         .expect("spawn ffmpeg");
     assert!(
@@ -85,6 +68,28 @@ fn write_fixture(path: &std::path::Path, size: &str) {
         "ffmpeg fixture failed: {}",
         String::from_utf8_lossy(&status.stderr)
     );
+}
+
+fn write_fixture(path: &std::path::Path, size: &str) {
+    let input = format!("testsrc=duration=1:size={size}:rate=30");
+    ffmpeg(&[
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        &input,
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:duration=1",
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
+        "-pix_fmt",
+        "yuv420p",
+        path.to_str().unwrap(),
+    ]);
 }
 
 #[test]
@@ -98,27 +103,15 @@ fn concat_mismatch_dry_run_reencodes() {
     write_fixture(&dir.path().join("a.mp4"), "320x240");
     write_fixture(&dir.path().join("b.mp4"), "640x360");
 
-    let assert = Command::cargo_bin("ave")
-        .unwrap()
-        .current_dir(dir.path())
-        .args(["concat", "a.mp4", "b.mp4", "-o", "out.mp4", "--dry-run"])
-        .assert()
-        .success();
-
-    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
-    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
-    assert_eq!(v["ok"], true);
-    let argv: Vec<&str> = v["ffmpeg"]
-        .as_array()
-        .expect("ffmpeg argv")
-        .iter()
-        .map(|x| x.as_str().unwrap())
-        .collect();
+    let argv = concat_dry_run_argv(&dir, "a.mp4", "b.mp4");
     assert!(
         !argv.windows(2).any(|w| w == ["-c", "copy"]),
         "mismatched concat must re-encode: {argv:?}"
     );
-    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
+    assert!(
+        argv.iter().any(|a| a == "libx264"),
+        "expected libx264 in {argv:?}"
+    );
 }
 
 fn write_rotated_fixture(path: &std::path::Path, size: &str) {
@@ -127,24 +120,16 @@ fn write_rotated_fixture(path: &std::path::Path, size: &str) {
         path.file_name().unwrap().to_string_lossy()
     ));
     write_fixture(&src, size);
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-display_rotation",
-            "90",
-            "-i",
-            src.to_str().unwrap(),
-            "-c",
-            "copy",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg rotate remux");
-    assert!(
-        status.status.success(),
-        "ffmpeg rotate remux failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
+    ffmpeg(&[
+        "-y",
+        "-display_rotation",
+        "90",
+        "-i",
+        src.to_str().unwrap(),
+        "-c",
+        "copy",
+        path.to_str().unwrap(),
+    ]);
 }
 
 fn concat_dry_run_argv(dir: &tempfile::TempDir, a: &str, b: &str) -> Vec<String> {
