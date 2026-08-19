@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `ave detect` for silence, black frames, and scene cuts.
+- `ave --version` prints the package version.
+
+### Changed
+
+- Video re-encodes share one `libx264` / `yuv420p` / CRF 23 / `medium` recipe, with `+faststart` on `.mp4`.
 
 ## [0.1.0] - 2026-08-18
 
