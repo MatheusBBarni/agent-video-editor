@@ -109,14 +109,16 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
-    /// Copy the ave agent skill into a skills folder
+    /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
         /// Agent providers to install into (repeatable or comma-separated).
-        /// One of: agents, claude, pi, cursor, all
+        /// One of: agents, claude, pi, cursor, all.
+        /// First provider gets the files; the others get a symlink to it.
         #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
         provider: Vec<skill::Provider>,
-        /// Install into DIR/ave (repeatable). Skips --provider
+        /// Install into DIR/ave (repeatable). Skips --provider.
+        /// First dir gets the files; extra dirs get a symlink to it.
         #[arg(long = "dir")]
         dirs: Vec<std::path::PathBuf>,
         /// Use home-dir paths (~/.claude/skills, …) instead of the project

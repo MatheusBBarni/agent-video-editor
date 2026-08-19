@@ -22,7 +22,7 @@ Need `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg` / `apt install ffmpeg
 # from this repo
 cargo install --path .
 ave doctor
-ave install-skill --provider claude,agents
+ave install-skill --provider claude,agents   # files in claude; agents is a symlink
 ave install-skill --provider all --global
 ```
 

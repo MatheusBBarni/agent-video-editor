@@ -1,6 +1,7 @@
 use crate::error::{Error, print_json};
 use clap::ValueEnum;
 use serde::Serialize;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 const SKILL_MD: &str = include_str!("../skills/ave/SKILL.md");
@@ -34,6 +35,7 @@ struct InstallEnvelope {
     op: &'static str,
     destinations: Vec<String>,
     written: Vec<String>,
+    linked: Vec<String>,
     providers: Vec<ProviderInfo>,
 }
 
@@ -77,11 +79,12 @@ pub fn install(
     no_overwrite: bool,
 ) {
     match install_inner(dirs, providers, global, dry_run, no_overwrite) {
-        Ok((destinations, written)) => print_json(&InstallEnvelope {
+        Ok(result) => print_json(&InstallEnvelope {
             ok: true,
             op: "install-skill",
-            destinations,
-            written,
+            destinations: result.destinations,
+            written: result.written,
+            linked: result.linked,
             providers: PROVIDERS.to_vec(),
         }),
         Err(err) if err.code == "missing_provider" => {
@@ -98,27 +101,52 @@ pub fn install(
     }
 }
 
+struct InstallResult {
+    destinations: Vec<String>,
+    written: Vec<String>,
+    linked: Vec<String>,
+}
+
 fn install_inner(
     dirs: &[PathBuf],
     providers: &[Provider],
     global: bool,
     dry_run: bool,
     no_overwrite: bool,
-) -> Result<(Vec<String>, Vec<String>), Error> {
+) -> Result<InstallResult, Error> {
     let roots = dest_roots(dirs, providers, global)?;
-    let mut destinations = Vec::new();
-    let mut written = Vec::new();
+    let dests: Vec<PathBuf> = roots.into_iter().map(|root| root.join("ave")).collect();
+    let destinations: Vec<String> = dests.iter().map(|d| d.display().to_string()).collect();
 
-    for root in roots {
-        let dest = root.join("ave");
-        destinations.push(dest.display().to_string());
-        if dry_run {
-            continue;
-        }
-        written.extend(write_skill(&dest, no_overwrite)?);
+    let mut dests = dests.into_iter();
+    let Some(canonical) = dests.next() else {
+        return Ok(InstallResult {
+            destinations,
+            written: Vec::new(),
+            linked: Vec::new(),
+        });
+    };
+    let aliases: Vec<PathBuf> = dests.collect();
+    let linked: Vec<String> = aliases.iter().map(|d| d.display().to_string()).collect();
+
+    if dry_run {
+        return Ok(InstallResult {
+            destinations,
+            written: Vec::new(),
+            linked,
+        });
     }
 
-    Ok((destinations, written))
+    let written = write_skill(&canonical, no_overwrite)?;
+    for alias in &aliases {
+        link_skill(alias, &canonical, no_overwrite)?;
+    }
+
+    Ok(InstallResult {
+        destinations,
+        written,
+        linked,
+    })
 }
 
 fn dest_roots(
@@ -163,10 +191,14 @@ fn dest_roots(
             other => selected.push(*other),
         }
     }
-    selected.sort_by_key(|p| *p as u8);
-    selected.dedup();
+    let mut unique = Vec::new();
+    for provider in selected {
+        if !unique.contains(&provider) {
+            unique.push(provider);
+        }
+    }
 
-    Ok(selected
+    Ok(unique
         .into_iter()
         .map(|p| provider_root(p, home.as_deref()))
         .collect())
@@ -187,16 +219,15 @@ fn provider_root(provider: Provider, home: Option<&Path>) -> PathBuf {
 }
 
 fn write_skill(dest: &Path, no_overwrite: bool) -> Result<Vec<String>, Error> {
+    if is_symlink(dest) {
+        if no_overwrite {
+            return Err(exists_error(dest));
+        }
+        remove_path(dest)?;
+    }
     let skill = dest.join("SKILL.md");
     if no_overwrite && skill.exists() {
-        return Err(Error::new(
-            "install-skill",
-            "output_exists",
-            format!(
-                "skill already exists and --no-overwrite was set: {}",
-                dest.display()
-            ),
-        ));
+        return Err(exists_error(dest));
     }
     std::fs::create_dir_all(dest.join("references"))
         .map_err(|e| Error::new("install-skill", "write_failed", e.to_string()))?;
@@ -212,4 +243,143 @@ fn write_skill(dest: &Path, no_overwrite: bool) -> Result<Vec<String>, Error> {
         written.push(path.display().to_string());
     }
     Ok(written)
+}
+
+fn link_skill(dest: &Path, canonical: &Path, no_overwrite: bool) -> Result<(), Error> {
+    if dest.symlink_metadata().is_ok() {
+        if no_overwrite {
+            return Err(exists_error(dest));
+        }
+        remove_path(dest)?;
+    }
+    let parent = dest.parent().ok_or_else(|| {
+        Error::new(
+            "install-skill",
+            "write_failed",
+            format!("cannot create symlink at {}", dest.display()),
+        )
+    })?;
+    std::fs::create_dir_all(parent)
+        .map_err(|e| Error::new("install-skill", "write_failed", e.to_string()))?;
+    let target = relative_path(&abs_path(parent), &abs_path(canonical));
+    create_symlink(&target, dest)
+        .map_err(|e| Error::new("install-skill", "write_failed", e.to_string()))
+}
+
+fn exists_error(dest: &Path) -> Error {
+    Error::new(
+        "install-skill",
+        "output_exists",
+        format!(
+            "skill already exists and --no-overwrite was set: {}",
+            dest.display()
+        ),
+    )
+}
+
+fn is_symlink(path: &Path) -> bool {
+    path.symlink_metadata()
+        .map(|meta| meta.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+fn remove_path(path: &Path) -> Result<(), Error> {
+    let meta = match path.symlink_metadata() {
+        Ok(meta) => meta,
+        Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(Error::new("install-skill", "write_failed", err.to_string())),
+    };
+    let result = if meta.file_type().is_symlink() || meta.is_file() {
+        std::fs::remove_file(path)
+    } else {
+        std::fs::remove_dir_all(path)
+    };
+    result.map_err(|e| Error::new("install-skill", "write_failed", e.to_string()))
+}
+
+fn abs_path(path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        match std::env::current_dir() {
+            Ok(cwd) => cwd.join(path),
+            Err(_) => path.to_path_buf(),
+        }
+    }
+}
+
+fn relative_path(from_dir: &Path, to: &Path) -> PathBuf {
+    if from_dir.is_absolute() != to.is_absolute() {
+        return to.to_path_buf();
+    }
+    let from: Vec<_> = from_dir.components().collect();
+    let to_comps: Vec<_> = to.components().collect();
+    let mut i = 0;
+    let shared = from.len().min(to_comps.len());
+    while i < shared && from[i] == to_comps[i] {
+        i += 1;
+    }
+    let mut rel = PathBuf::new();
+    for _ in i..from.len() {
+        rel.push("..");
+    }
+    for component in &to_comps[i..] {
+        rel.push(component);
+    }
+    if rel.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        rel
+    }
+}
+
+fn create_symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (target, link);
+        Err(std::io::Error::new(
+            ErrorKind::Unsupported,
+            "symlinks are not supported on this platform",
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relative_path_pi_to_claude() {
+        assert_eq!(
+            relative_path(
+                Path::new(".pi/agent/skills"),
+                Path::new(".claude/skills/ave")
+            ),
+            Path::new("../../../.claude/skills/ave")
+        );
+    }
+
+    #[test]
+    fn relative_path_agents_to_claude() {
+        assert_eq!(
+            relative_path(Path::new(".agents/skills"), Path::new(".claude/skills/ave")),
+            Path::new("../../.claude/skills/ave")
+        );
+    }
+
+    #[test]
+    fn relative_path_sibling_dirs() {
+        assert_eq!(
+            relative_path(Path::new("/tmp/b"), Path::new("/tmp/a/ave")),
+            Path::new("../a/ave")
+        );
+    }
 }

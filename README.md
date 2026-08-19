@@ -137,7 +137,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `compress` | CRF 23, preset `medium` unless you pass `--crf` / `--preset` |
 | `convert` | Container from the output extension. `.gif` is a two-pass palette |
 | `run` | JSON plan, or `-` for stdin |
-| `install-skill` | Copy the agent skill into a provider folder |
+| `install-skill` | Install the agent skill into one provider folder; symlink the rest |
 
 Resize presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080.
 
@@ -149,7 +149,7 @@ More examples: [`skills/ave/references/commands.md`](skills/ave/references/comma
 
 ## Agent skill
 
-The skill lives in this repo at [`skills/ave/`](skills/ave/SKILL.md). Copy it into the agent folders you use:
+The skill lives in this repo at [`skills/ave/`](skills/ave/SKILL.md). Install it into the agent folders you use. The first `--provider` (or `--dir`) gets the files; the rest get a symlink to that folder:
 
 ```bash
 ave install-skill --provider claude
@@ -165,7 +165,7 @@ ave install-skill --provider all --global
 | `cursor` | `.cursor/skills` | `~/.cursor/skills` |
 | `all` | those four | those four under `~/` |
 
-`--dir DIR` writes `DIR/ave` and ignores providers. No `--provider` and no `--dir` prints the list and exits 1.
+`--dir DIR` writes `DIR/ave` and ignores providers. Extra `--dir` values become symlinks to the first. No `--provider` and no `--dir` prints the list and exits 1.
 
 > [!NOTE]
 > After `cargo install`, re-run `ave install-skill` if you change the skill files. The binary embeds a copy at compile time.

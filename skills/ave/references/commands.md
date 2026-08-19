@@ -79,7 +79,7 @@ GIF uses a two-pass palette. Do not leave `palette.png` around; `ave` removes it
 
 ## install-skill
 
-Copies the bundled skill so agents can load it.
+Installs the bundled skill so agents can load it. The first `--provider` or `--dir` gets the files; every extra destination is a symlink to that folder.
 
 ```bash
 ave install-skill --provider claude
@@ -91,7 +91,7 @@ ave --dry-run install-skill --provider cursor
 
 `--provider` is multi-select (`agents`, `claude`, `pi`, `cursor`, `all`). Repeat the flag or use commas. No `--provider` and no `--dir` → JSON lists the choices and exits 1.
 
-`--global` uses `~/…` instead of the project. `--dir DIR` writes `DIR/ave` and skips providers.
+`--global` uses `~/…` instead of the project. `--dir DIR` writes `DIR/ave` and skips providers. Extra `--dir` values become symlinks to the first.
 
 ## doctor
 
