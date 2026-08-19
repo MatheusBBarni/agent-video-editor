@@ -95,6 +95,66 @@ fn run_dry_run_accepts_concat_after_trims() {
     assert_eq!(v["steps"][2]["op"], "concat");
 }
 
+#[test]
+fn run_dry_run_accurate_trim_uses_accurate_seek_recipe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {
+              "op": "trim",
+              "input": "in.mp4",
+              "from": "1",
+              "to": "2",
+              "accurate": true,
+              "output": "out.mp4"
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    assert_eq!(
+        v["steps"][0]["ffmpeg"],
+        serde_json::json!([
+            "ffmpeg",
+            "-y",
+            "-accurate_seek",
+            "-ss",
+            "1",
+            "-to",
+            "2",
+            "-i",
+            "in.mp4",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "23",
+            "-preset",
+            "medium",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            "out.mp4"
+        ])
+    );
+}
+
 fn ffmpeg_available() -> bool {
     std::process::Command::new("ffmpeg")
         .arg("-version")
