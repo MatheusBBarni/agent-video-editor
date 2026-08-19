@@ -1,4 +1,6 @@
-use crate::error::{DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
+use crate::error::{
+    DetectEnvelope, DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope,
+};
 use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
@@ -15,6 +17,7 @@ pub enum Outcome {
     Edit(Envelope),
     Info(InfoEnvelope),
     Frames(FramesEnvelope),
+    Detect(DetectEnvelope),
     Doctor(DoctorEnvelope),
 }
 

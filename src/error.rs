@@ -128,6 +128,23 @@ pub struct FramesEnvelope {
 }
 
 #[derive(Serialize)]
+pub struct DetectSegment {
+    pub start_s: f64,
+    pub end_s: f64,
+    pub kind: &'static str,
+}
+
+#[derive(Serialize)]
+pub struct DetectEnvelope {
+    pub ok: bool,
+    pub op: &'static str,
+    pub kind: &'static str,
+    pub input: String,
+    pub segments: Vec<DetectSegment>,
+    pub ffmpeg: Vec<String>,
+}
+
+#[derive(Serialize)]
 pub struct DoctorEnvelope {
     pub ok: bool,
     pub op: &'static str,

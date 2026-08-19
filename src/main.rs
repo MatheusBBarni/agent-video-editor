@@ -274,6 +274,7 @@ fn main() {
             Ok(Outcome::Edit(env)) => print_json(&env),
             Ok(Outcome::Info(env)) => print_json(&env),
             Ok(Outcome::Frames(env)) => print_json(&env),
+            Ok(Outcome::Detect(env)) => print_json(&env),
             Ok(Outcome::Doctor(env)) => {
                 let ok = env.ok;
                 print_json(&env);
