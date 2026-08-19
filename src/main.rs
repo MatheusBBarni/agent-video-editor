@@ -234,14 +234,23 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             duration,
             output,
             accurate,
-        } => Ok(Op::Trim {
-            input,
-            from,
-            to,
-            duration,
-            output: require_output("trim", output)?,
-            accurate,
-        }),
+        } => {
+            if to.is_some() && duration.is_some() {
+                return Err(error::Error::new(
+                    "trim",
+                    "conflicting_fields",
+                    "trim accepts only one of --to or --duration",
+                ));
+            }
+            Ok(Op::Trim {
+                input,
+                from,
+                to,
+                duration,
+                output: require_output("trim", output)?,
+                accurate,
+            })
+        }
         Command::Concat { inputs, output } => {
             if inputs.len() < 2 {
                 return Err(error::Error::new(
