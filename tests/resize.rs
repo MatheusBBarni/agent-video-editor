@@ -82,8 +82,14 @@ fn resize_square_dry_run_uses_shared_reencode_recipe() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
     let argv = resize_dry_run_argv(&dir, "in.mp4");
-    assert!(argv.iter().any(|a| a == "libx264"), "expected libx264: {argv:?}");
-    assert!(argv.iter().any(|a| a == "yuv420p"), "expected yuv420p: {argv:?}");
+    assert!(
+        argv.iter().any(|a| a == "libx264"),
+        "expected libx264: {argv:?}"
+    );
+    assert!(
+        argv.iter().any(|a| a == "yuv420p"),
+        "expected yuv420p: {argv:?}"
+    );
     assert!(
         argv.iter().any(|a| a == "+faststart"),
         "expected +faststart on mp4: {argv:?}"

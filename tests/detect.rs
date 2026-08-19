@@ -56,8 +56,7 @@ fn detect_silence_dry_run_prints_silencedetect_and_empty_segments() {
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
     let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter()
-            .any(|a| *a == "silencedetect=noise=-30dB:d=0.5"),
+        argv.iter().any(|a| *a == "silencedetect=noise=-30dB:d=0.5"),
         "argv must lock silencedetect=noise=-30dB:d=0.5: {argv:?}"
     );
     assert!(
@@ -182,8 +181,7 @@ fn detect_black_dry_run_prints_blackdetect() {
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
     let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter()
-            .any(|a| *a == "blackdetect=d=0.5:pix_th=0.10"),
+        argv.iter().any(|a| *a == "blackdetect=d=0.5:pix_th=0.10"),
         "argv must lock blackdetect=d=0.5:pix_th=0.10: {argv:?}"
     );
 }
