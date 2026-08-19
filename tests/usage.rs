@@ -61,7 +61,7 @@ fn version_stays_human_and_prints_package_version() {
         "--version must not be a JSON object"
     );
     assert!(
-        stdout.contains("0.1.0"),
+        stdout.contains(env!("CARGO_PKG_VERSION")),
         "--version should include the Cargo.toml version: {stdout}"
     );
 }

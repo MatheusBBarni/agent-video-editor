@@ -26,7 +26,7 @@ pub fn trim_argv(
             "-i".into(),
             input.into(),
         ];
-        ffmpeg.extend(reencode_video_args(23, "medium"));
+        ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
         if has_audio {
             ffmpeg.extend(["-c:a".into(), "aac".into()]);
         }
@@ -88,7 +88,7 @@ pub fn concat_from_mpegts_argv(
 
 pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
     let mut ffmpeg = concat_demuxer_prefix(list_path);
-    ffmpeg.extend(reencode_video_args(23, "medium"));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
     ffmpeg.extend(["-c:a".into(), "aac".into()]);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -158,7 +158,7 @@ pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) ->
         "-vf".into(),
         vf.into(),
     ];
-    ffmpeg.extend(reencode_video_args(23, "medium"));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
     push_audio_copy(&mut ffmpeg, has_audio);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -241,7 +241,7 @@ pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool) -> Ve
     if has_audio {
         ffmpeg.extend(["-filter:a".into(), atempo_filter(factor)]);
     }
-    ffmpeg.extend(reencode_video_args(23, "medium"));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
@@ -312,7 +312,7 @@ pub fn overlay_argv(
         "-filter_complex".into(),
         expr.into(),
     ];
-    ffmpeg.extend(reencode_video_args(23, "medium"));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
     push_audio_copy(&mut ffmpeg, has_audio);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -509,6 +509,9 @@ fn push_audio_copy(argv: &mut Vec<String>, has_audio: bool) {
         argv.extend(["-c:a".into(), "copy".into()]);
     }
 }
+
+pub const DEFAULT_CRF: u8 = 23;
+pub const DEFAULT_PRESET: &str = "medium";
 
 pub fn reencode_video_args(crf: u8, preset: &str) -> Vec<String> {
     vec![
