@@ -53,7 +53,12 @@ ave resize clip.mp4 --preset tiktok -o short.mp4
 ave resize clip.mp4 --preset youtube -o yt.mp4
 ```
 
-JSON may use `"preset"` or `"width"` + `"height"` (scale + center pad).
+JSON may use `"preset"` or `"width"` + `"height"`. `--fit pad` (default) letterboxes. `--fit crop` fills and center-crops. `--fit stretch` scales with no pad.
+
+```bash
+ave resize clip.mp4 --preset tiktok --fit crop -o short.mp4
+ave resize clip.mp4 --width 640 --height 360 --fit stretch -o wide.mp4
+```
 
 ## speed
 
@@ -79,6 +84,57 @@ ave replace-audio clip.mp4 --mute -o silent.mp4
 ave replace-audio clip.mp4 --audio voice.mp3 -o dubbed.mp4
 ave replace-audio clip.mp4 --mix music.mp3 -o mixed.mp4
 ```
+
+## frame
+
+```bash
+ave frame clip.mp4 --at 1 -o poster.jpg
+ave frame clip.mp4 --at 00:00:12.5 -o still.png
+```
+
+One still. Format from `-o` (`jpg` / `png` / `webp`). `--copy-only` fails.
+
+## captions
+
+```bash
+ave captions clip.mp4 --srt subs.srt -o burned.mp4
+ave captions clip.mp4 --srt subs.vtt -o burned.mp4
+```
+
+Burns the file. No styling DSL. `.srt` or `.vtt` only.
+
+## text
+
+```bash
+ave text clip.mp4 --text "Hello" --position lower-third -o titled.mp4
+ave text clip.mp4 --text "Hello" --position center --from 0 --to 3 -o titled.mp4
+```
+
+One locked drawtext. Positions: `lower-third` (default), `center`, `top`.
+
+## fade
+
+```bash
+ave fade clip.mp4 --in 0.5 --out 0.5 -o faded.mp4
+ave fade clip.mp4 --in 1 -o in.mp4
+```
+
+At least one of `--in` / `--out`.
+
+## volume
+
+```bash
+ave volume clip.mp4 --db -6 -o quieter.mp4
+ave volume clip.mp4 --db 3 -o louder.mp4
+```
+
+## rotate
+
+```bash
+ave rotate clip.mp4 --deg 90 -o turned.mp4
+```
+
+`90`, `180`, or `270`. Re-encodes with `transpose`. Other degrees are `bad_range`.
 
 ## overlay
 

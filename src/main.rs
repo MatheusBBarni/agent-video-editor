@@ -9,7 +9,10 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output, require_rotate_deg, require_subtitle_file};
+use op::{
+    Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output,
+    require_rotate_deg, require_subtitle_file,
+};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -477,20 +480,12 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             output: require_output("speed", output)?,
             factor,
         }),
-        Command::Rotate {
-            input,
-            deg,
-            output,
-        } => Ok(Op::Rotate {
+        Command::Rotate { input, deg, output } => Ok(Op::Rotate {
             input,
             deg: require_rotate_deg("rotate", deg)?,
             output: require_output("rotate", output)?,
         }),
-        Command::Volume {
-            input,
-            db,
-            output,
-        } => Ok(Op::Volume {
+        Command::Volume { input, db, output } => Ok(Op::Volume {
             input,
             db: parse_db("volume", &db)?,
             output: require_output("volume", output)?,

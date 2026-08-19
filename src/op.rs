@@ -423,9 +423,9 @@ impl Op {
                 output: req("output")?,
             }),
             "rotate" => {
-                let deg = step["deg"].as_u64().ok_or_else(|| {
-                    Error::new("run", "missing_field", "rotate requires deg")
-                })?;
+                let deg = step["deg"]
+                    .as_u64()
+                    .ok_or_else(|| Error::new("run", "missing_field", "rotate requires deg"))?;
                 Ok(Self::Rotate {
                     input: req("input")?,
                     deg: require_rotate_deg("run", deg as u32)?,
@@ -433,9 +433,8 @@ impl Op {
                 })
             }
             "volume" => {
-                let db = json_string_or_number(&step["db"]).ok_or_else(|| {
-                    Error::new("run", "missing_field", "volume requires db")
-                })?;
+                let db = json_string_or_number(&step["db"])
+                    .ok_or_else(|| Error::new("run", "missing_field", "volume requires db"))?;
                 Ok(Self::Volume {
                     input: req("input")?,
                     db: parse_db("run", &db)?,
@@ -647,11 +646,15 @@ pub fn require_rotate_deg(op: &'static str, deg: u32) -> Result<u32, Error> {
 }
 
 pub fn parse_db(op: &'static str, raw: &str) -> Result<f64, Error> {
-    let db: f64 = raw.parse().map_err(|_| {
-        Error::new(op, "bad_range", format!("invalid db value: {raw}"))
-    })?;
+    let db: f64 = raw
+        .parse()
+        .map_err(|_| Error::new(op, "bad_range", format!("invalid db value: {raw}")))?;
     if !db.is_finite() {
-        return Err(Error::new(op, "bad_range", format!("invalid db value: {raw}")));
+        return Err(Error::new(
+            op,
+            "bad_range",
+            format!("invalid db value: {raw}"),
+        ));
     }
     Ok(db)
 }
@@ -675,7 +678,11 @@ pub fn fade_pair(
             Error::new(op, "bad_timestamp", format!("invalid timestamp: {value}"))
         })?;
         if secs <= 0.0 {
-            return Err(Error::new(op, "bad_range", "fade duration must be greater than 0"));
+            return Err(Error::new(
+                op,
+                "bad_range",
+                "fade duration must be greater than 0",
+            ));
         }
     }
     Ok((fade_in, fade_out))

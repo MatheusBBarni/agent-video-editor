@@ -279,7 +279,10 @@ fn resize_fit_stretch_width_height_dry_run_scales_without_pad() {
             "--dry-run",
         ],
     );
-    assert!(vf.contains("640:360"), "stretch should scale to 640x360: {vf}");
+    assert!(
+        vf.contains("640:360"),
+        "stretch should scale to 640x360: {vf}"
+    );
     assert!(!vf.contains("pad="), "stretch must not pad: {vf}");
     assert!(!vf.contains("crop="), "stretch must not crop: {vf}");
     assert!(

@@ -27,7 +27,11 @@ fn argv_of(v: &Value) -> Vec<&str> {
 fn captions_srt_dry_run_uses_subtitles_filter() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
-    fs::write(dir.path().join("sub.srt"), b"1\n00:00:00,000 --> 00:00:01,000\nHi\n").unwrap();
+    fs::write(
+        dir.path().join("sub.srt"),
+        b"1\n00:00:00,000 --> 00:00:01,000\nHi\n",
+    )
+    .unwrap();
 
     let (ok, v) = ave_json(
         &dir,
@@ -54,6 +58,9 @@ fn captions_srt_dry_run_uses_subtitles_filter() {
         vf.contains("subtitles="),
         "captions must burn subtitles=: {vf}"
     );
-    assert!(vf.contains("sub.srt"), "srt path must be in the filter: {vf}");
+    assert!(
+        vf.contains("sub.srt"),
+        "srt path must be in the filter: {vf}"
+    );
     assert!(!dir.path().join("out.mp4").exists());
 }

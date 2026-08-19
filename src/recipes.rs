@@ -140,6 +140,15 @@ pub fn scale_stretch(w: u32, h: u32) -> String {
     format!("scale={w}:{h}")
 }
 
+pub fn resize_filter(w: u32, h: u32, fit: &str) -> Option<String> {
+    Some(match fit {
+        "pad" => scale_pad(w, h),
+        "crop" => scale_crop(w, h),
+        "stretch" => scale_stretch(w, h),
+        _ => return None,
+    })
+}
+
 pub fn preset_size(preset: &str) -> Option<(u32, u32)> {
     match preset {
         "tiktok" => Some((1080, 1920)),
@@ -398,12 +407,7 @@ pub fn escape_drawtext(text: &str) -> String {
         .replace(':', "\\:")
 }
 
-pub fn text_vf(
-    text: &str,
-    position: &str,
-    from: Option<&str>,
-    to: Option<&str>,
-) -> Option<String> {
+pub fn text_vf(text: &str, position: &str, from: Option<&str>, to: Option<&str>) -> Option<String> {
     let (x, y) = text_position_xy(position)?;
     let mut vf = format!(
         "drawtext=text='{}':fontsize=48:fontcolor=white:x={x}:y={y}",
@@ -415,12 +419,7 @@ pub fn text_vf(
     Some(vf)
 }
 
-pub fn text_argv(
-    input: &str,
-    output: &str,
-    vf: &str,
-    has_audio: bool,
-) -> Vec<String> {
+pub fn text_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
     resize_argv(input, output, vf, has_audio)
 }
 

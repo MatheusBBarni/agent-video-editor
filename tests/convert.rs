@@ -45,7 +45,10 @@ fn convert_gif_dry_run_is_two_pass_and_leaves_no_palette() {
         2,
         "both passes must name the temp palette: pass1={pass1:?} pass2={pass2:?}"
     );
-    assert_eq!(palettes[0], palettes[1], "both passes must share one palette");
+    assert_eq!(
+        palettes[0], palettes[1],
+        "both passes must share one palette"
+    );
     let palette = palettes[0];
     assert_ne!(palette, "palette.png");
     assert!(
