@@ -155,3 +155,30 @@ fn detect_unsupported_in_run() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["error"], "unsupported_in_run");
 }
+
+#[test]
+fn detect_black_dry_run_prints_blackdetect() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("clip.mp4"), b"placeholder").unwrap();
+
+    let (ok, v) = ave_json(
+        &dir,
+        &["detect", "clip.mp4", "--kind", "black", "--dry-run"],
+    );
+    assert!(ok, "{v}");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["op"], "detect");
+    assert_eq!(v["kind"], "black");
+    let segments = v["segments"].as_array().expect("segments");
+    assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
+    let argv: Vec<&str> = v["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        argv.iter().any(|a| a.contains("blackdetect")),
+        "argv must contain blackdetect: {argv:?}"
+    );
+}
