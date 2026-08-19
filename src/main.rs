@@ -129,6 +129,10 @@ enum Command {
         y: Option<i32>,
         #[arg(long)]
         opacity: Option<f64>,
+        #[arg(long)]
+        from: Option<String>,
+        #[arg(long)]
+        to: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -493,6 +497,8 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             x,
             y,
             opacity,
+            from,
+            to,
             output,
         } => {
             let (position, x, y) = overlay_place(position, x, y, "overlay")?;
@@ -504,6 +510,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
                 x,
                 y,
                 opacity: parse_opacity(opacity, "overlay")?,
+                span: text_span(from, to, "overlay")?,
             })
         }
         Command::ReplaceAudio {

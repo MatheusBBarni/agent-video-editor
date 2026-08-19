@@ -322,6 +322,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             x,
             y,
             opacity,
+            span,
         } => {
             let place = match (x, y) {
                 (Some(x), Some(y)) => recipes::overlay_xy(*x, *y),
@@ -335,7 +336,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                     })?
                     .to_string(),
             };
-            let expr = recipes::overlay_filter(&place, *opacity);
+            let expr = recipes::overlay_filter(&place, *opacity, span.as_ref());
             Ok(reencode_job(recipes::with_bin(
                 recipes::overlay_argv(input, image, output, &expr, audio.unwrap_or(false)),
                 bin,

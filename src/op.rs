@@ -1,5 +1,5 @@
 use crate::error::Error;
-pub use crate::overlay::parse_opacity;
+pub use crate::overlay::{overlay_place, parse_opacity};
 use crate::recipes;
 
 #[derive(Debug, Clone)]
@@ -137,6 +137,7 @@ pub enum Op {
         x: Option<i32>,
         y: Option<i32>,
         opacity: Option<f64>,
+        span: Option<(String, String)>,
     },
     Compress {
         input: String,
@@ -447,6 +448,11 @@ impl Op {
                     x,
                     y,
                     opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
+                    span: text_span(
+                        json_string_or_number(&step["from"]),
+                        json_string_or_number(&step["to"]),
+                        "run",
+                    )?,
                 })
             }
             "compress" => Ok(Self::Compress {
@@ -778,28 +784,6 @@ pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Er
             "unknown_fit",
             format!("unknown fit: {other}"),
         )),
-    }
-}
-
-pub fn overlay_place(
-    position: Option<String>,
-    x: Option<i32>,
-    y: Option<i32>,
-    op: &'static str,
-) -> Result<(Option<String>, Option<i32>, Option<i32>), Error> {
-    let position = position.filter(|s| !s.is_empty());
-    match (&position, x, y) {
-        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(Error::new(
-            op,
-            "conflicting_fields",
-            "overlay accepts only one of position or x and y",
-        )),
-        (None, Some(_), None) | (None, None, Some(_)) => Err(Error::new(
-            op,
-            "missing_field",
-            "overlay pixel placement requires both x and y",
-        )),
-        _ => Ok((position, x, y)),
     }
 }
 
