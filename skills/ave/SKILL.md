@@ -35,7 +35,7 @@ ave install-skill --provider all --global
 2. Prefer the file the user named. Else the newest video in cwd.
 3. `ave info <file>` — recap duration, coded size, codecs, fps, audio, rotation, display size.
 4. Vague ask → ask what to change. Concrete ask → plan, then run.
-5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Several other verbs → one `ave run` plan.
+5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Several other verbs → one `ave run` plan. Review many timestamps → `frames --at` / `--every`, not an `fps=` dump.
 6. `--dry-run` first when unsure. Then run for real.
 7. Reply with output path, duration, resolution, size from the JSON.
 
@@ -70,12 +70,13 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `compress` | `<in> -o OUT` | `--crf 23` `--preset medium` |
 | `convert` | `<in> -o OUT` | format from `-o` ext; `.gif` = two-pass |
 | `frame` | `<in> --at T -o STILL` | one still; ext is `jpg`/`png`/`webp`. `--copy-only` fails |
+| `frames` | `<in> --at T,T -o DIR` | or `--every SEC`. Writes `t-<ts>.jpg`. Optional `--sheet PATH`. Not valid in `run` |
 | `captions` | `<in> --srt FILE -o OUT` | burn `.srt` or `.vtt`. No styling DSL |
 | `text` | `<in> --text STR -o OUT` | `--position lower-third` (default) `center` `top`. Optional `--from` `--to` |
 | `fade` | `<in> --in SEC --out SEC -o OUT` | at least one of `--in` / `--out` |
 | `volume` | `<in> --db N -o OUT` | signed dB (`-6`, `3`) |
 | `rotate` | `<in> --deg 90 -o OUT` | `90` `180` `270` only; re-encodes with `transpose` |
-| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` steps |
+| `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` / `frames` steps |
 
 Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
 

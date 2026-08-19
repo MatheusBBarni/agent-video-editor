@@ -37,7 +37,10 @@ fn frames_at_two_times_dry_run_lists_paths_and_writes_nothing() {
     assert!(!dir.path().join("review").exists());
     assert!(!dir.path().join("review/t-1.jpg").exists());
     assert!(!dir.path().join("review/t-2.jpg").exists());
-    assert!(v.get("sheet").is_none(), "no --sheet means no sheet key: {v}");
+    assert!(
+        v.get("sheet").is_none(),
+        "no --sheet means no sheet key: {v}"
+    );
 }
 
 #[test]
@@ -150,10 +153,7 @@ fn frames_every_30_on_one_second_writes_one_still() {
     }
     let dir = tempfile::tempdir().unwrap();
     write_fixture(&dir.path().join("in.mp4"));
-    let (ok, v) = ave_json(
-        &dir,
-        &["frames", "in.mp4", "--every", "30", "-o", "review"],
-    );
+    let (ok, v) = ave_json(&dir, &["frames", "in.mp4", "--every", "30", "-o", "review"]);
     assert!(ok, "{v}");
     let frames = v["frames"].as_array().expect("frames");
     assert_eq!(frames.len(), 1, "floor(1/30)+1 stills: {v}");

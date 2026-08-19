@@ -94,6 +94,16 @@ ave frame clip.mp4 --at 00:00:12.5 -o still.png
 
 One still. Format from `-o` (`jpg` / `png` / `webp`). `--copy-only` fails.
 
+## frames
+
+```bash
+ave frames clip.mp4 --at 1,18:40 -o review
+ave frames clip.mp4 --every 30 -o review
+ave frames clip.mp4 --at 1,2 --sheet sheet.jpg -o review
+```
+
+`-o` is a directory (`t-1.jpg`, `t-18-40.jpg`). `--at` xor `--every`. `--every SEC` is `0, SEC, 2*SEC, …` while `t <= duration` (`floor(duration/SEC)+1` stills). `--sheet` is an extra contact-sheet image. Not valid inside `ave run`. Do not invent `fps=` dumps.
+
 ## captions
 
 ```bash

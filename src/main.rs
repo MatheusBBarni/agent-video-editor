@@ -1,5 +1,6 @@
 mod error;
 mod exec;
+mod frames;
 mod op;
 mod probe;
 mod recipes;

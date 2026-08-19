@@ -1,4 +1,4 @@
-use crate::error::{DoctorEnvelope, Envelope, Error, FrameItem, FramesEnvelope, InfoEnvelope};
+use crate::error::{DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
 use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
 use crate::probe::{self, media_meta};
 use crate::recipes;
@@ -53,7 +53,7 @@ fn execute_assuming(
     match op {
         Op::Doctor => return doctor(ctx),
         Op::Info { input } => return info(input, ctx),
-        Op::Frames { .. } => return frames(op, ctx),
+        Op::Frames { .. } => return crate::frames::execute(op, ctx),
         _ => {}
     }
 
@@ -759,7 +759,11 @@ fn cut_out_job(
     keep_pieces_job(input, &pieces, output, accurate, ctx, bin)
 }
 
-fn probed_duration(ffprobe_bin: &str, input: &str, op: &'static str) -> Result<f64, Error> {
+pub(crate) fn probed_duration(
+    ffprobe_bin: &str,
+    input: &str,
+    op: &'static str,
+) -> Result<f64, Error> {
     let probe = probe::probe_json(ffprobe_bin, input).ok_or_else(|| {
         Error::new(
             op,
@@ -846,7 +850,7 @@ fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
-fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
+pub(crate) fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
     let output = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .output()
@@ -856,112 +860,6 @@ fn run_ffmpeg(argv: &[String]) -> Result<(), String> {
     } else {
         Err(String::from_utf8_lossy(&output.stderr).into_owned())
     }
-}
-
-fn frames(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
-    let Op::Frames {
-        input,
-        at,
-        sheet,
-        output,
-        ..
-    } = op
-    else {
-        return Err(Error::new("frames", "internal", "not a frames op"));
-    };
-    if !std::path::Path::new(input).exists() {
-        return Err(Error::new(
-            "frames",
-            "missing_input",
-            format!("input not found: {input}"),
-        ));
-    }
-    if ctx.copy_only {
-        return Err(Error::new(
-            "frames",
-            "copy_only",
-            "frames requires still extract; --copy-only refuses this operation",
-        ));
-    }
-    let items: Vec<FrameItem> = at
-        .iter()
-        .map(|stamp| FrameItem {
-            at: stamp.clone(),
-            path: format!("{output}/{}", frame_still_name(stamp)),
-        })
-        .collect();
-    if items.is_empty() {
-        return Err(Error::new(
-            "frames",
-            "missing_field",
-            "frames requires --at or --every",
-        ));
-    }
-    let mut passes: Vec<Vec<String>> = items
-        .iter()
-        .map(|item| {
-            recipes::with_bin(
-                recipes::frame_argv(input, &item.at, &item.path),
-                &ctx.ffmpeg,
-            )
-        })
-        .collect();
-    if let Some(sheet) = sheet {
-        passes.push(recipes::with_bin(
-            recipes::contact_sheet_argv(
-                &items.iter().map(|i| i.path.as_str()).collect::<Vec<_>>(),
-                sheet,
-            ),
-            &ctx.ffmpeg,
-        ));
-    }
-    if ctx.no_overwrite {
-        for item in &items {
-            if std::path::Path::new(&item.path).exists() {
-                return Err(Error::new(
-                    "frames",
-                    "output_exists",
-                    format!("output exists and --no-overwrite was set: {}", item.path),
-                ));
-            }
-        }
-        if let Some(sheet) = sheet {
-            if std::path::Path::new(sheet).exists() {
-                return Err(Error::new(
-                    "frames",
-                    "output_exists",
-                    format!("output exists and --no-overwrite was set: {sheet}"),
-                ));
-            }
-        }
-    }
-    if !ctx.dry_run {
-        std::fs::create_dir_all(output).map_err(|e| {
-            Error::new(
-                "frames",
-                "ffmpeg_failed",
-                format!("could not create {output}: {e}"),
-            )
-        })?;
-        for cmd in &passes {
-            run_ffmpeg(cmd).map_err(|e| Error::ffmpeg("frames", e))?;
-        }
-    }
-    let ffmpeg = passes.last().cloned().unwrap_or_default();
-    Ok(Outcome::Frames(FramesEnvelope {
-        ok: true,
-        op: "frames",
-        input: input.clone(),
-        output: output.clone(),
-        frames: items,
-        sheet: sheet.clone(),
-        ffmpeg,
-        passes: Some(passes),
-    }))
-}
-
-fn frame_still_name(at: &str) -> String {
-    format!("t-{}.jpg", at.replace(':', "-"))
 }
 
 fn info(input: &str, ctx: &Ctx) -> Result<Outcome, Error> {
