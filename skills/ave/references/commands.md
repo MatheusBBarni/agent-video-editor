@@ -8,6 +8,8 @@ All examples assume `ave` is on PATH and cwd holds the files. Add `--dry-run` to
 ave info clip.mp4
 ```
 
+JSON includes `duration_s`, coded `width`/`height`, `size_bytes`, `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. Missing streams use `""` / `false` / `0`. `rotate_deg` is `0`, `90`, `180`, or `270`.
+
 ## trim
 
 ```bash

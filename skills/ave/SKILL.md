@@ -32,7 +32,7 @@ ave install-skill --provider all --global
 
 1. Read this skill.
 2. Prefer the file the user named. Else the newest video in cwd.
-3. `ave info <file>` — recap duration, width, height, size.
+3. `ave info <file>` — recap duration, coded size, codecs, fps, audio, rotation, display size.
 4. Vague ask → ask what to change. Concrete ask → plan, then run.
 5. Multi-step (cut a middle, several trims + join) → one `ave run` plan. Single op → the verb.
 6. `--dry-run` first when unsure. Then run for real.
@@ -55,7 +55,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 
 | Cmd | Args | Notes |
 |---|---|---|
-| `info` | `<in>` | probe only |
+| `info` | `<in>` | duration, coded `width`/`height`, `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height` |
 | `doctor` | | ffmpeg/ffprobe versions |
 | `trim` | `<in> --from T --to T -o OUT` | or `--duration T` instead of `--to`. `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy if shapes match |
@@ -76,7 +76,7 @@ More examples: `references/commands.md`.
 
 ## JSON stdout
 
-Success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
+Edit success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `info` is additive: those probe fields plus `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. `width`/`height` are coded samples; display size applies rotation. `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
 
 Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 

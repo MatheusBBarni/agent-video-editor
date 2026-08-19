@@ -62,6 +62,14 @@ pub struct InfoEnvelope {
     pub width: u32,
     pub height: u32,
     pub size_bytes: u64,
+    pub video_codec: String,
+    pub audio_codec: String,
+    pub fps: String,
+    pub has_video: bool,
+    pub has_audio: bool,
+    pub rotate_deg: u32,
+    pub display_width: u32,
+    pub display_height: u32,
     pub ffmpeg: Vec<String>,
 }
 
