@@ -1,4 +1,5 @@
 use crate::error::Error;
+pub use crate::overlay::parse_opacity;
 use crate::recipes;
 
 #[derive(Debug, Clone)]
@@ -135,6 +136,7 @@ pub enum Op {
         position: Option<String>,
         x: Option<i32>,
         y: Option<i32>,
+        opacity: Option<f64>,
     },
     Compress {
         input: String,
@@ -444,6 +446,7 @@ impl Op {
                     position,
                     x,
                     y,
+                    opacity: parse_opacity(step["opacity"].as_f64(), "run")?,
                 })
             }
             "compress" => Ok(Self::Compress {

@@ -3,6 +3,7 @@ mod error;
 mod exec;
 mod frames;
 mod op;
+mod overlay;
 mod probe;
 mod recipes;
 mod skill;
@@ -13,8 +14,8 @@ use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
 use op::{
     Op, TrimEnd, crop_insets, fade_pair, overlay_place, parse_at_list, parse_db, parse_every,
-    parse_keep_ranges, parse_resize_fit, parse_rotate_deg, parse_text_pos, replace_audio_choice,
-    require_output, require_subtitle_file, text_span,
+    parse_keep_ranges, parse_opacity, parse_resize_fit, parse_rotate_deg, parse_text_pos,
+    replace_audio_choice, require_output, require_subtitle_file, text_span,
 };
 
 #[derive(Parser)]
@@ -126,6 +127,8 @@ enum Command {
         x: Option<i32>,
         #[arg(long)]
         y: Option<i32>,
+        #[arg(long)]
+        opacity: Option<f64>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -489,6 +492,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             position,
             x,
             y,
+            opacity,
             output,
         } => {
             let (position, x, y) = overlay_place(position, x, y, "overlay")?;
@@ -499,6 +503,7 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
                 position,
                 x,
                 y,
+                opacity: parse_opacity(opacity, "overlay")?,
             })
         }
         Command::ReplaceAudio {

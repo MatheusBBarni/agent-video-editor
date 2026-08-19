@@ -299,6 +299,15 @@ pub fn overlay_xy(x: i32, y: i32) -> String {
     format!("overlay={x}:{y}")
 }
 
+pub fn overlay_filter(overlay: &str, opacity: Option<f64>) -> String {
+    match opacity {
+        Some(alpha) if alpha < 1.0 => {
+            format!("[1:v]format=rgba,colorchannelmixer=aa={alpha}[ov];[0:v][ov]{overlay}")
+        }
+        _ => overlay.to_string(),
+    }
+}
+
 pub fn overlay_argv(
     input: &str,
     image: &str,
