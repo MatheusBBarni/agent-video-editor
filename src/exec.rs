@@ -403,31 +403,22 @@ fn info(input: &str, ctx: &Ctx) -> Result<Outcome, Error> {
     }
     let argv = probe::ffprobe_argv(&ctx.ffprobe, input);
     let probe = probe::probe_or_err(&ctx.ffprobe, input)?;
-    let (duration_s, width, height, size_bytes) = {
-        let duration_s = probe["format"]["duration"]
-            .as_str()
-            .and_then(|s| s.parse().ok())
-            .or_else(|| probe["format"]["duration"].as_f64())
-            .unwrap_or(0.0);
-        let size_bytes = probe["format"]["size"]
-            .as_str()
-            .and_then(|s| s.parse().ok())
-            .or_else(|| probe["format"]["size"].as_u64())
-            .unwrap_or(0);
-        let video = probe["streams"]
-            .as_array()
-            .and_then(|streams| streams.iter().find(|s| s["codec_type"] == "video"));
-        let width = video.and_then(|s| s["width"].as_u64()).unwrap_or(0) as u32;
-        let height = video.and_then(|s| s["height"].as_u64()).unwrap_or(0) as u32;
-        (duration_s, width, height, size_bytes)
-    };
+    let meta = probe::media_info_from_probe(&probe);
     Ok(Outcome::Info(InfoEnvelope {
         ok: true,
         op: "info",
-        duration_s,
-        width,
-        height,
-        size_bytes,
+        duration_s: meta.duration_s,
+        width: meta.width,
+        height: meta.height,
+        size_bytes: meta.size_bytes,
+        video_codec: meta.video_codec,
+        audio_codec: meta.audio_codec,
+        fps: meta.fps,
+        has_video: meta.has_video,
+        has_audio: meta.has_audio,
+        rotate_deg: meta.rotate_deg,
+        display_width: meta.display_width,
+        display_height: meta.display_height,
         ffmpeg: argv,
     }))
 }
