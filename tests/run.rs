@@ -334,3 +334,23 @@ fn run_trim_to_and_duration_conflict_fails_before_any_step() {
         "must not write step 1 output when a later step conflicts"
     );
 }
+
+#[test]
+fn run_trim_without_to_or_duration_fails_missing_field() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    let plan = r#"{"steps":[{"op":"trim","input":"in.mp4","from":"10","output":"out.mp4"}]}"#;
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "-", "--dry-run"])
+        .write_stdin(plan)
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "missing_field");
+}
