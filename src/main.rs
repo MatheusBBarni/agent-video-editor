@@ -9,7 +9,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
+use op::{Op, TrimEnd, fade_pair, parse_db, parse_keep_ranges, replace_audio_choice, require_output, require_rotate_deg, require_subtitle_file};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -153,6 +153,13 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Rotate {
+        input: String,
+        #[arg(long)]
+        deg: u32,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     Volume {
         input: String,
         #[arg(long, allow_hyphen_values = true)]
@@ -266,6 +273,7 @@ fn usage_op() -> &'static str {
             "text" => Some("text"),
             "fade" => Some("fade"),
             "volume" => Some("volume"),
+            "rotate" => Some("rotate"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -468,6 +476,15 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             output: require_output("speed", output)?,
             factor,
+        }),
+        Command::Rotate {
+            input,
+            deg,
+            output,
+        } => Ok(Op::Rotate {
+            input,
+            deg: require_rotate_deg("rotate", deg)?,
+            output: require_output("rotate", output)?,
         }),
         Command::Volume {
             input,

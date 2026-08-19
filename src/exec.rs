@@ -371,6 +371,28 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Rotate {
+            input,
+            deg,
+            output,
+        } => {
+            let vf = recipes::rotate_vf(*deg).ok_or_else(|| {
+                Error::new(
+                    "rotate",
+                    "bad_range",
+                    format!("rotate accepts 90, 180, or 270: {deg}"),
+                )
+            })?;
+            Ok(Job {
+                argv: recipes::with_bin(
+                    recipes::rotate_argv(input, output, vf, audio.unwrap_or(false)),
+                    bin,
+                ),
+                passes: None,
+                cleanup: vec![],
+                reencode: true,
+            })
+        }
         Op::Volume {
             input,
             db,

@@ -154,6 +154,11 @@ pub enum Op {
         srt: String,
         output: String,
     },
+    Rotate {
+        input: String,
+        deg: u32,
+        output: String,
+    },
     Volume {
         input: String,
         db: f64,
@@ -198,6 +203,7 @@ impl Op {
             Self::Text { .. } => "text",
             Self::Fade { .. } => "fade",
             Self::Volume { .. } => "volume",
+            Self::Rotate { .. } => "rotate",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -220,7 +226,8 @@ impl Op {
             | Self::Captions { output, .. }
             | Self::Text { output, .. }
             | Self::Fade { output, .. }
-            | Self::Volume { output, .. } => Some(output),
+            | Self::Volume { output, .. }
+            | Self::Rotate { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -239,6 +246,7 @@ impl Op {
             | Self::Text { input, .. }
             | Self::Fade { input, .. }
             | Self::Volume { input, .. }
+            | Self::Rotate { input, .. }
             | Self::Info { input } => vec![input],
             Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
@@ -414,6 +422,16 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "rotate" => {
+                let deg = step["deg"].as_u64().ok_or_else(|| {
+                    Error::new("run", "missing_field", "rotate requires deg")
+                })?;
+                Ok(Self::Rotate {
+                    input: req("input")?,
+                    deg: require_rotate_deg("run", deg as u32)?,
+                    output: req("output")?,
+                })
+            }
             "volume" => {
                 let db = json_string_or_number(&step["db"]).ok_or_else(|| {
                     Error::new("run", "missing_field", "volume requires db")
@@ -613,6 +631,17 @@ pub fn replace_audio_choice(
             op,
             "conflicting_flags",
             "replace-audio accepts only one of mute, audio, or mix",
+        )),
+    }
+}
+
+pub fn require_rotate_deg(op: &'static str, deg: u32) -> Result<u32, Error> {
+    match deg {
+        90 | 180 | 270 => Ok(deg),
+        _ => Err(Error::new(
+            op,
+            "bad_range",
+            format!("rotate accepts 90, 180, or 270: {deg}"),
         )),
     }
 }

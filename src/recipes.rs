@@ -335,6 +335,19 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn rotate_vf(deg: u32) -> Option<&'static str> {
+    Some(match deg {
+        90 => "transpose=clock",
+        180 => "transpose=clock,transpose=clock",
+        270 => "transpose=cclock",
+        _ => return None,
+    })
+}
+
+pub fn rotate_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
+    resize_argv(input, output, vf, has_audio)
+}
+
 pub fn volume_argv(input: &str, output: &str, db: f64) -> Vec<String> {
     vec![
         "ffmpeg".into(),
