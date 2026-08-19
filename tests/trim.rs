@@ -330,6 +330,34 @@ fn trim_refuses_output_that_normalizes_to_the_input() {
 }
 
 #[test]
+fn trim_rejects_unparseable_from() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "trim",
+            "in.mp4",
+            "--from",
+            "nope",
+            "--to",
+            "1",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "bad_timestamp");
+}
+
+#[test]
 fn trim_missing_input_fails_and_writes_no_output() {
     let dir = tempfile::tempdir().unwrap();
     let output = dir.path().join("out.mp4");
