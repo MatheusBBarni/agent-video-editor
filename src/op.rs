@@ -879,6 +879,21 @@ pub fn crop_insets(
     ))
 }
 
+pub fn validate_crop_frame(
+    top: u32,
+    bottom: u32,
+    left: u32,
+    right: u32,
+    width: u32,
+    height: u32,
+    op: &'static str,
+) -> Result<(), Error> {
+    if left.saturating_add(right) >= width || top.saturating_add(bottom) >= height {
+        return Err(Error::new(op, "bad_range", "crop would empty the frame"));
+    }
+    Ok(())
+}
+
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
     output.ok_or_else(|| {
         Error::new(

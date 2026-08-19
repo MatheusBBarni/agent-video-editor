@@ -147,6 +147,14 @@ pub fn probed_has_audio(ffprobe_bin: &str, path: &str) -> Option<bool> {
     Some(media_info_from_probe(&probe_json(ffprobe_bin, path)?).has_audio)
 }
 
+pub fn probed_size(ffprobe_bin: &str, path: &str) -> Option<(u32, u32)> {
+    if !std::path::Path::new(path).exists() {
+        return None;
+    }
+    let info = media_info_from_probe(&probe_json(ffprobe_bin, path)?);
+    Some((info.width, info.height))
+}
+
 pub fn tool_version(bin: &str) -> Option<String> {
     let output = std::process::Command::new(bin)
         .arg("-version")

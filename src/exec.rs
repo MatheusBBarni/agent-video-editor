@@ -1,5 +1,5 @@
 use crate::error::{DoctorEnvelope, Envelope, Error, FramesEnvelope, InfoEnvelope};
-use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp};
+use crate::op::{KeepRange, Op, TrimEnd, parse_timestamp, validate_crop_frame};
 use crate::probe::{self, media_meta};
 use crate::recipes;
 
@@ -427,13 +427,18 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             left,
             right,
             output,
-        } => Ok(vf_job(
-            input,
-            output,
-            &recipes::crop_filter(*top, *bottom, *left, *right),
-            audio.unwrap_or(false),
-            bin,
-        )),
+        } => {
+            if let Some((width, height)) = probe::probed_size(&ctx.ffprobe, input) {
+                validate_crop_frame(*top, *bottom, *left, *right, width, height, "crop")?;
+            }
+            Ok(vf_job(
+                input,
+                output,
+                &recipes::crop_filter(*top, *bottom, *left, *right),
+                audio.unwrap_or(false),
+                bin,
+            ))
+        }
         Op::Frame { input, at, output } => Ok(reencode_job(recipes::with_bin(
             recipes::frame_argv(input, at, output),
             bin,
