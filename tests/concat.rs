@@ -235,3 +235,110 @@ fn concat_unprobeable_copy_only_fails() {
     assert_eq!(v["ok"], false);
     assert_eq!(v["error"], "copy_only");
 }
+
+#[test]
+fn concat_mid_gop_copy_trims_have_monotonic_dts() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_gop_fixture(&dir.path().join("src.mp4"));
+
+    ave_ok(&dir, &["trim", "src.mp4", "--from", "0.4", "--duration", "2", "-o", "a.mp4"]);
+    ave_ok(&dir, &["trim", "src.mp4", "--from", "3.4", "--duration", "2", "-o", "b.mp4"]);
+
+    let log = dir.path().join("ffmpeg.err");
+    let wrapper = write_ffmpeg_stderr_logger(dir.path(), &log);
+    ave_ok(
+        &dir,
+        &[
+            "--ffmpeg",
+            wrapper.to_str().unwrap(),
+            "concat",
+            "a.mp4",
+            "b.mp4",
+            "-o",
+            "out.mp4",
+        ],
+    );
+
+    let stderr = fs::read_to_string(&log).unwrap_or_default();
+    assert!(
+        !stderr.contains("Non-monotonic DTS"),
+        "copy concat must reset timestamps:\n{stderr}"
+    );
+    assert!(
+        dir.path().join("out.mp4").exists(),
+        "concat must write out.mp4"
+    );
+
+    let leftover: Vec<String> = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        leftover.iter().all(|name| {
+            !name.ends_with(".ts") && name != "concat-list.txt" && !name.starts_with("ave-concat-")
+        }),
+        "concat must not leave remux temps in cwd: {leftover:?}"
+    );
+}
+
+fn write_gop_fixture(path: &std::path::Path) {
+    ffmpeg(&[
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=duration=10:size=320x240:rate=30",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:duration=10",
+        "-c:v",
+        "libx264",
+        "-g",
+        "30",
+        "-keyint_min",
+        "30",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        path.to_str().unwrap(),
+    ]);
+}
+
+fn write_ffmpeg_stderr_logger(dir: &std::path::Path, log: &std::path::Path) -> std::path::PathBuf {
+    let wrapper = dir.join("ave-ffmpeg");
+    fs::write(
+        &wrapper,
+        format!("#!/bin/sh\nexec ffmpeg \"$@\" 2>>\"{}\"\n", log.display()),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&wrapper).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&wrapper, perms).unwrap();
+    }
+    wrapper
+}
+
+fn ave_ok(dir: &tempfile::TempDir, args: &[&str]) -> Value {
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(args)
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true, "{stdout}");
+    v
+}
