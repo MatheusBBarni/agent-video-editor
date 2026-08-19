@@ -63,11 +63,12 @@ ave resize clip.mp4 --preset tiktok -o short.mp4
 ave resize clip.mp4 --preset youtube -o yt.mp4
 ```
 
-JSON may use `"preset"` or `"width"` + `"height"`. `--fit pad` (default) letterboxes. `--fit crop` fills and center-crops. `--fit stretch` scales with no pad.
+JSON may use `"preset"` or `"width"` + `"height"`, not both (`conflicting_fields`). `--fit pad` (default) letterboxes. `--fit crop` fills and center-crops. `--fit stretch` / `--stretch` scales with no pad.
 
 ```bash
 ave resize clip.mp4 --preset tiktok --fit crop -o short.mp4
 ave resize clip.mp4 --width 640 --height 360 --fit stretch -o wide.mp4
+ave resize clip.mp4 --preset tiktok --stretch -o short.mp4
 ```
 
 ## speed
@@ -169,7 +170,10 @@ Pixels in the coded frame. At least one of `--top` / `--bottom` / `--left` / `--
 
 ```bash
 ave overlay clip.mp4 --image logo.png --position top-right -o marked.mp4
+ave overlay clip.mp4 --image logo.png --x 20 --y 40 --opacity 0.5 --from 1 --to 3 -o marked.mp4
 ```
+
+`--position` (default `top-right`) or `--x` / `--y` from the top-left, not both. `--opacity` is `(0, 1]`; omit means 1. `--from` / `--to` limit when the overlay is visible.
 
 ## compress
 
@@ -216,4 +220,8 @@ ave --ffmpeg /opt/homebrew/bin/ffmpeg --ffprobe /opt/homebrew/bin/ffprobe doctor
 ave --dry-run trim in.mp4 --from 0 --to 10 -o out.mp4
 ave --no-overwrite trim in.mp4 --from 0 --to 10 -o out.mp4
 ave --copy-only concat a.mp4 b.mp4 -o out.mp4
+ave --human info clip.mp4
+ave --verbose --progress resize clip.mp4 --preset square -o out.mp4
 ```
+
+`--human` prints text on stdout (success and failure). Agents should omit it. `--verbose` prints ffmpeg/ffprobe logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding.

@@ -52,7 +52,8 @@ ave install-skill --provider all --global
 ## Commands
 
 ```text
-ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] <CMD>
+ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH]
+    [--human] [--verbose] [--progress] <CMD>
 ```
 
 | Cmd | Args | Notes |
@@ -64,11 +65,11 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `cut-out` | `<in> --from T --to T -o OUT` | delete `[from, to)`; keeps the rest and joins. Probes `end`. `--accurate` applies to both trims |
 | `keep` | `<in> --ranges A-B,C-end -o OUT` | keep those ranges and join. `end` is probed. User listed N cuts → `keep --ranges` |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy only if every input probes and codec, size, fps, and `rotate_deg` match. Do not remux clips to `.ts` yourself; `ave concat` resets timestamps. |
-| `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square`. `--fit pad` (default) `crop` `stretch`. Or `--width W --height H` |
+| `resize` | `<in> --preset NAME -o OUT` | or `--width W --height H` (not both). `--fit pad` (default) `crop` `stretch`. `--stretch` skips pad |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |
 | `extract-audio` | `<in> -o OUT` | codec from `--format` or `-o` ext (`mp3` `wav` `aac` `flac` `copy`). Video-only → `no_audio` |
 | `replace-audio` | `<in> -o OUT` | `--mute` or `--audio FILE` or `--mix FILE` |
-| `overlay` | `<in> --image IMG -o OUT` | `--position` `top-right` (default) `top-left` `bottom-left` `bottom-right` `center` |
+| `overlay` | `<in> --image IMG -o OUT` | `--position` (default `top-right`) or `--x` `--y`. Optional `--opacity` `(0,1]`, `--from` `--to` |
 | `compress` | `<in> -o OUT` | `--crf 23` `--preset medium` |
 | `convert` | `<in> -o OUT` | format from `-o` ext; `.gif` = two-pass |
 | `frame` | `<in> --at T -o STILL` | one still; ext is `jpg`/`png`/`webp`. `--copy-only` fails |
@@ -91,7 +92,7 @@ More examples: `references/commands.md`.
 
 Edit success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `info` is additive: those probe fields plus `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. `width`/`height` are coded samples; display size applies rotation. `detect` is `ok`, `op`, `kind`, `input`, `segments`, `ffmpeg`. `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
 
-Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
+Parse stdout as JSON unless `--human` (text for people; agents should omit it). `--verbose` prints ffmpeg logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding. Do not scrape ffmpeg banners from stdout.
 
 ## Encode policy
 
