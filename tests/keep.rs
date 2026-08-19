@@ -1,26 +1,9 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg, require_ffmpeg};
 use serde_json::Value;
 use std::fs;
-
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn ffmpeg(args: &[&str]) {
-    let status = std::process::Command::new("ffmpeg")
-        .args(args)
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
 
 fn write_keyed_secs(path: &std::path::Path, secs: u32) {
     let video = format!("testsrc=duration={secs}:size=320x240:rate=30");
@@ -63,8 +46,7 @@ fn ave_json(dir: &tempfile::TempDir, args: &[&str]) -> (bool, Value) {
 
 #[test]
 fn keep_dry_run_prints_trim_and_concat_passes() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -121,8 +103,7 @@ fn keep_dry_run_prints_trim_and_concat_passes() {
 
 #[test]
 fn keep_writes_selected_ranges() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -159,8 +140,7 @@ fn keep_writes_selected_ranges() {
 
 #[test]
 fn keep_zero_to_end_is_not_an_error() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -184,8 +164,7 @@ fn keep_zero_to_end_is_not_an_error() {
 
 #[test]
 fn keep_inverted_or_overlapping_ranges_are_bad_range() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -252,8 +231,7 @@ fn keep_refuses_in_place_and_missing_output() {
 
 #[test]
 fn run_keep_dry_run_matches_verb() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

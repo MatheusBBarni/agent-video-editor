@@ -1,10 +1,9 @@
 mod common;
 
-use common::{ave_json, ffmpeg_available, write_video_only_fixture};
+use common::{ave_json, ffmpeg, require_ffmpeg, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
-use std::process::Command as StdCommand;
 
 #[test]
 fn detect_unknown_kind_fails() {
@@ -56,25 +55,12 @@ fn detect_silence_dry_run_prints_silencedetect_and_empty_segments() {
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
     let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter()
-            .any(|a| *a == "silencedetect=noise=-30dB:d=0.5"),
+        argv.iter().any(|a| *a == "silencedetect=noise=-30dB:d=0.5"),
         "argv must lock silencedetect=noise=-30dB:d=0.5: {argv:?}"
     );
     assert!(
         argv.contains(&"-vn"),
         "silence detect should skip video: {argv:?}"
-    );
-}
-
-fn ffmpeg(args: &[&str]) {
-    let status = StdCommand::new("ffmpeg")
-        .args(args)
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
     );
 }
 
@@ -101,8 +87,7 @@ fn write_silence_gap_fixture(path: &Path) {
 
 #[test]
 fn detect_silence_finds_known_gap() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -134,8 +119,7 @@ fn detect_silence_finds_known_gap() {
 
 #[test]
 fn detect_silence_on_video_only_fails_no_audio() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -182,8 +166,7 @@ fn detect_black_dry_run_prints_blackdetect() {
     assert!(segments.is_empty(), "dry-run segments must be empty: {v}");
     let argv = ffmpeg_argv(&v);
     assert!(
-        argv.iter()
-            .any(|a| *a == "blackdetect=d=0.5:pix_th=0.10"),
+        argv.iter().any(|a| *a == "blackdetect=d=0.5:pix_th=0.10"),
         "argv must lock blackdetect=d=0.5:pix_th=0.10: {argv:?}"
     );
 }
@@ -234,8 +217,7 @@ fn write_black_then_white_fixture(path: &Path) {
 
 #[test]
 fn detect_black_finds_known_gap() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -258,8 +240,7 @@ fn detect_black_finds_known_gap() {
 
 #[test]
 fn detect_scenes_splits_known_cut() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

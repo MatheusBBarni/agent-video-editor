@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{require_ffmpeg, write_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -528,52 +531,14 @@ fn trim_accurate_dry_run_reencodes_instead_of_copy() {
     );
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_fixture(path: &std::path::Path, duration_s: u32) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            &format!("testsrc=duration={duration_s}:size=320x240:rate=30"),
-            "-f",
-            "lavfi",
-            "-i",
-            &format!("sine=frequency=1000:duration={duration_s}"),
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
 #[test]
 fn trim_accurate_write_lands_on_requested_window() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"), 5);
+    write_fixture(&dir.path().join("clip.mp4"), 5.0, (320, 240), true);
 
     Command::cargo_bin("ave")
         .unwrap()
@@ -615,13 +580,12 @@ fn trim_accurate_write_lands_on_requested_window() {
 
 #[test]
 fn trim_writes_shorter_playable_file() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"), 5);
+    write_fixture(&dir.path().join("clip.mp4"), 5.0, (320, 240), true);
 
     Command::cargo_bin("ave")
         .unwrap()

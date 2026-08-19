@@ -58,11 +58,16 @@ fn compress_dry_run_uses_shared_reencode_recipe() {
         .iter()
         .map(|x| x.as_str().unwrap())
         .collect();
-    assert!(argv.iter().any(|a| *a == "libx264"), "expected libx264: {argv:?}");
-    assert!(argv.iter().any(|a| *a == "+faststart"), "expected +faststart: {argv:?}");
+    assert!(
+        argv.iter().any(|a| *a == "libx264"),
+        "expected libx264: {argv:?}"
+    );
+    assert!(
+        argv.iter().any(|a| *a == "+faststart"),
+        "expected +faststart: {argv:?}"
+    );
     assert!(
         argv.windows(2).any(|w| w == ["-crf", "23"]),
         "default crf 23: {argv:?}"
     );
 }
-

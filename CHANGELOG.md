@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ave detect` for silence, black frames, and scene cuts.
 - `ave --version` prints the package version.
+- GitHub Actions CI: rustfmt, clippy, and `cargo test` on Linux and macOS with ffmpeg.
 
 ### Changed
 

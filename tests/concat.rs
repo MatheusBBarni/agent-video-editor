@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg, require_ffmpeg, write_fixture};
 use serde_json::Value;
 use std::fs;
 
@@ -51,58 +54,20 @@ fn concat_dry_run_uses_concat_demuxer_and_writes_nothing() {
     );
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn ffmpeg(args: &[&str]) {
-    let status = std::process::Command::new("ffmpeg")
-        .args(args)
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
-fn write_fixture(path: &std::path::Path, size: &str) {
-    let input = format!("testsrc=duration=1:size={size}:rate=30");
-    ffmpeg(&[
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        &input,
-        "-f",
-        "lavfi",
-        "-i",
-        "sine=frequency=1000:duration=1",
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
-        "-pix_fmt",
-        "yuv420p",
-        path.to_str().unwrap(),
-    ]);
+fn write_sized(path: &std::path::Path, size: &str) {
+    let (w, h) = size.split_once('x').expect("WxH");
+    write_fixture(path, 1.0, (w.parse().unwrap(), h.parse().unwrap()), true);
 }
 
 #[test]
 fn concat_mismatch_dry_run_reencodes() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("a.mp4"), "320x240");
-    write_fixture(&dir.path().join("b.mp4"), "640x360");
+    write_sized(&dir.path().join("a.mp4"), "320x240");
+    write_sized(&dir.path().join("b.mp4"), "640x360");
 
     let argv = concat_dry_run_argv(&dir, "a.mp4", "b.mp4");
     assert!(
@@ -120,7 +85,7 @@ fn write_rotated_fixture(path: &std::path::Path, size: &str) {
         "src-{}",
         path.file_name().unwrap().to_string_lossy()
     ));
-    write_fixture(&src, size);
+    write_sized(&src, size);
     ffmpeg(&[
         "-y",
         "-display_rotation",
@@ -153,13 +118,12 @@ fn concat_dry_run_argv(dir: &tempfile::TempDir, a: &str, b: &str) -> Vec<String>
 
 #[test]
 fn concat_mixed_rotation_dry_run_reencodes() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("unrotated.mp4"), "320x240");
+    write_sized(&dir.path().join("unrotated.mp4"), "320x240");
     write_rotated_fixture(&dir.path().join("rotated.mp4"), "320x240");
 
     let argv = concat_dry_run_argv(&dir, "unrotated.mp4", "rotated.mp4");
@@ -175,8 +139,7 @@ fn concat_mixed_rotation_dry_run_reencodes() {
 
 #[test]
 fn concat_same_rotation_dry_run_still_copies() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -193,14 +156,13 @@ fn concat_same_rotation_dry_run_still_copies() {
 
 #[test]
 fn concat_matching_fixtures_dry_run_copies() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("a.mp4"), "320x240");
-    write_fixture(&dir.path().join("b.mp4"), "320x240");
+    write_sized(&dir.path().join("a.mp4"), "320x240");
+    write_sized(&dir.path().join("b.mp4"), "320x240");
 
     let argv = concat_dry_run_argv(&dir, "a.mp4", "b.mp4");
     assert!(
@@ -238,8 +200,7 @@ fn concat_unprobeable_copy_only_fails() {
 
 #[test]
 fn concat_mid_gop_copy_trims_have_monotonic_dts() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
@@ -312,14 +273,13 @@ fn concat_mid_gop_copy_trims_have_monotonic_dts() {
 
 #[test]
 fn concat_matching_dry_run_shows_mpegts_remux() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("a.mp4"), "320x240");
-    write_fixture(&dir.path().join("b.mp4"), "320x240");
+    write_sized(&dir.path().join("a.mp4"), "320x240");
+    write_sized(&dir.path().join("b.mp4"), "320x240");
 
     let v = ave_ok(
         &dir,
@@ -384,14 +344,13 @@ fn concat_matching_dry_run_shows_mpegts_remux() {
 
 #[test]
 fn concat_matching_copy_only_still_succeeds() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("a.mp4"), "320x240");
-    write_fixture(&dir.path().join("b.mp4"), "320x240");
+    write_sized(&dir.path().join("a.mp4"), "320x240");
+    write_sized(&dir.path().join("b.mp4"), "320x240");
 
     let v = ave_ok(
         &dir,

@@ -1,4 +1,7 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{require_ffmpeg, write_clip};
 use serde_json::Value;
 use std::fs;
 
@@ -100,52 +103,14 @@ fn convert_gif_pass1_failure_leaves_user_palette() {
     );
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn write_fixture(path: &std::path::Path) {
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=duration=1:size=320x240:rate=30",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=1000:duration=1",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
 #[test]
 fn convert_gif_success_leaves_user_palette() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"));
+    write_clip(&dir.path().join("clip.mp4"));
     fs::write(dir.path().join("palette.png"), b"user-palette").unwrap();
 
     Command::cargo_bin("ave")

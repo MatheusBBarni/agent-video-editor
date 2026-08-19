@@ -1,19 +1,18 @@
 mod common;
 
 use assert_cmd::Command;
-use common::{ffmpeg_available, write_fixture, write_video_only_fixture};
+use common::{require_ffmpeg, write_clip, write_video_only_fixture};
 use serde_json::Value;
 use std::fs;
 
 #[test]
 fn extract_audio_mp3_dry_run_disables_video() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("in.mp4"));
+    write_clip(&dir.path().join("in.mp4"));
 
     let assert = Command::cargo_bin("ave")
         .unwrap()
@@ -112,8 +111,7 @@ fn replace_audio_file_dry_run_maps_new_track() {
 
 #[test]
 fn extract_audio_video_only_fails_no_audio() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 

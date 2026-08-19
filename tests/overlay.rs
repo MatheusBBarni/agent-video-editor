@@ -75,11 +75,16 @@ fn overlay_dry_run_uses_shared_reencode_recipe() {
         .iter()
         .map(|x| x.as_str().unwrap())
         .collect();
-    assert!(argv.iter().any(|a| *a == "libx264"), "expected libx264: {argv:?}");
-    assert!(argv.iter().any(|a| *a == "yuv420p"), "expected yuv420p: {argv:?}");
+    assert!(
+        argv.iter().any(|a| *a == "libx264"),
+        "expected libx264: {argv:?}"
+    );
+    assert!(
+        argv.iter().any(|a| *a == "yuv420p"),
+        "expected yuv420p: {argv:?}"
+    );
     assert!(
         argv.iter().any(|a| *a == "+faststart"),
         "expected +faststart: {argv:?}"
     );
 }
-

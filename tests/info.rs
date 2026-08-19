@@ -1,71 +1,16 @@
+mod common;
+
 use assert_cmd::Command;
+use common::{ffmpeg, require_ffmpeg, write_fixture};
 use serde_json::Value;
 use std::path::Path;
-use std::process::Command as StdCommand;
-
-fn ffmpeg_available() -> bool {
-    StdCommand::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn ffmpeg(args: &[&str]) {
-    let status = StdCommand::new("ffmpeg")
-        .args(args)
-        .output()
-        .expect("spawn ffmpeg");
-    assert!(
-        status.status.success(),
-        "ffmpeg fixture failed: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
-fn write_video_only_fixture(path: &Path) {
-    ffmpeg(&[
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "testsrc=duration=2:size=320x240:rate=30",
-        "-an",
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        path.to_str().unwrap(),
-    ]);
-}
-
-fn write_fixture(path: &Path) {
-    ffmpeg(&[
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "testsrc=duration=2:size=320x240:rate=30",
-        "-f",
-        "lavfi",
-        "-i",
-        "sine=frequency=1000:duration=2",
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
-        "-pix_fmt",
-        "yuv420p",
-        path.to_str().unwrap(),
-    ]);
-}
 
 fn write_rotated_fixture(path: &Path) {
     let src = path
         .parent()
         .expect("fixture parent")
         .join("src-unrotated.mp4");
-    write_fixture(&src);
+    write_fixture(&src, 2.0, (320, 240), true);
     ffmpeg(&[
         "-y",
         "-display_rotation",
@@ -91,13 +36,12 @@ fn info_json(dir: &tempfile::TempDir, input: &str) -> Value {
 
 #[test]
 fn info_reports_duration_and_resolution() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"));
+    write_fixture(&dir.path().join("clip.mp4"), 2.0, (320, 240), true);
     let v = info_json(&dir, "clip.mp4");
 
     assert_eq!(v["ok"], true);
@@ -113,13 +57,12 @@ fn info_reports_duration_and_resolution() {
 
 #[test]
 fn info_reports_codecs_fps_audio_and_unrotated_display() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_fixture(&dir.path().join("clip.mp4"));
+    write_fixture(&dir.path().join("clip.mp4"), 2.0, (320, 240), true);
     let v = info_json(&dir, "clip.mp4");
 
     let video_codec = v["video_codec"].as_str().expect("video_codec");
@@ -149,13 +92,12 @@ fn info_reports_codecs_fps_audio_and_unrotated_display() {
 
 #[test]
 fn info_reports_empty_audio_on_video_only_file() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
     let dir = tempfile::tempdir().unwrap();
-    write_video_only_fixture(&dir.path().join("silent.mp4"));
+    write_fixture(&dir.path().join("silent.mp4"), 2.0, (320, 240), false);
     let v = info_json(&dir, "silent.mp4");
 
     assert_eq!(v["ok"], true);
@@ -166,8 +108,7 @@ fn info_reports_empty_audio_on_video_only_file() {
 
 #[test]
 fn info_swaps_display_size_when_rotate_is_90() {
-    if !ffmpeg_available() {
-        eprintln!("skipping: ffmpeg not on PATH");
+    if !require_ffmpeg() {
         return;
     }
 
