@@ -14,3 +14,14 @@ fn detect_unknown_kind_fails() {
     assert_eq!(v["op"], "detect");
     assert_eq!(v["error"], "unknown_kind");
 }
+
+#[test]
+fn detect_missing_input_fails() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let (ok, v) = ave_json(&dir, &["detect", "missing.mp4", "--kind", "silence"]);
+    assert!(!ok);
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["op"], "detect");
+    assert_eq!(v["error"], "missing_input");
+}
