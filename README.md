@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, concat, resize, speed, extract/replace audio, overlay, compress, and convert
+- Verbs for trim, cut-out, concat, resize, speed, extract/replace audio, overlay, compress, and convert
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -82,21 +82,17 @@ ave trim clip.mp4 --from 30 --to 105 -o keep.mp4
 ave resize keep.mp4 --preset tiktok -o short.mp4
 ```
 
-Several steps in one go:
+Delete a middle section with one verb (do not write two trims + concat):
+
+```bash
+ave cut-out in.mp4 --from 12 --to 18 -o out.mp4
+```
+
+Several other steps in one go:
 
 ```bash
 ave run plan.json
 ave run - < plan.json
-```
-
-```json
-{
-  "steps": [
-    {"op": "trim", "input": "in.mp4", "from": "0", "to": "12", "output": "a.mp4"},
-    {"op": "trim", "input": "in.mp4", "from": "18", "to": "120", "output": "b.mp4"},
-    {"op": "concat", "inputs": ["a.mp4", "b.mp4"], "output": "out.mp4"}
-  ]
-}
 ```
 
 Paths are relative to the current directory. A later step may use an earlier `output` as its input. If a step fails, ave stops and keeps whatever it already wrote.
@@ -128,6 +124,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `info` | Probe duration, coded size, codecs, fps, audio, rotation, display size |
 | `doctor` | Check ffmpeg / ffprobe |
 | `trim` | Cut a range with `--to` or `--duration`. `--accurate` re-encodes for frame-accurate in/out |
+| `cut-out` | Delete `[from, to)` and join what remains. Probes the file end |
 | `concat` | Join clips. Copies when every input probes and codec, size, fps, and rotation match; re-encodes otherwise |
 | `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. Pads, does not stretch |
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |

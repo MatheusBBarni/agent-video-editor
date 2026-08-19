@@ -1,6 +1,6 @@
 # ave run plans
 
-Use `ave run` when the job is more than one verb (delete a middle, five trims + concat).
+Use `ave run` when the job is more than one verb. Delete a middle section with `cut-out`, not two trims + concat.
 
 ```bash
 ave run plan.json
@@ -25,6 +25,7 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | op | required | optional |
 |---|---|---|
 | `trim` | `input`, `from`, `output`, and exactly one of `to` or `duration` | `accurate` |
+| `cut-out` | `input`, `from`, `to`, `output` | `accurate` |
 | `concat` | `inputs` (≥2), `output` | |
 | `resize` | `input`, `output`, `preset` **or** `width`+`height` | |
 | `speed` | `input`, `output`, `factor` | |
@@ -38,19 +39,19 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 
 ## Delete a middle section
 
-Keep 0–12s and 18s–end, then join:
+```bash
+ave cut-out in.mp4 --from 12 --to 18 -o out.mp4
+```
 
 ```json
 {
   "steps": [
-    {"op": "trim", "input": "in.mp4", "from": "00:00:00", "to": "00:00:12", "output": "a.mp4"},
-    {"op": "trim", "input": "in.mp4", "from": "00:00:18", "to": "00:02:00", "output": "b.mp4"},
-    {"op": "concat", "inputs": ["a.mp4", "b.mp4"], "output": "out.mp4"}
+    {"op": "cut-out", "input": "in.mp4", "from": "12", "to": "18", "output": "out.mp4"}
   ]
 }
 ```
 
-Ask for the real end time from `ave info` if the user did not give it.
+Do not invert the hole into keep-ranges or guess `end` from `info`.
 
 ## Trim then TikTok
 

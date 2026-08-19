@@ -20,6 +20,15 @@ ave trim clip.mp4 --from 00:00:30 --to 00:01:45 --accurate -o keep.mp4
 
 `--from` plus exactly one of `--to` or `--duration`. `--to` becomes ffmpeg `-to`; `--duration` becomes `-t`. Do not pass both (`conflicting_fields`). Default trim stream-copies (`-ss` and `-to`/`-t` before `-i`, `-c copy`). `--accurate` keeps those as input options, adds `-accurate_seek`, and re-encodes (`libx264` / `aac`). Do not move `-ss` after `-i`.
 
+## cut-out
+
+```bash
+ave cut-out clip.mp4 --from 12 --to 18 -o kept.mp4
+ave cut-out clip.mp4 --from 12 --to 18 --accurate -o kept.mp4
+```
+
+Deletes from-to and joins what remains. `end` comes from ffprobe. Do not pass it, and do not write two trims plus concat. `--accurate` applies to both internal trims. `from >= to` or `to` past the file end is `bad_range`.
+
 ## concat
 
 ```bash

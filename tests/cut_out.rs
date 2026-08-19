@@ -274,6 +274,21 @@ fn run_cut_out_dry_run_matches_verb() {
     assert!(!dir.path().join("out.mp4").exists());
 }
 
+#[test]
+fn skill_uses_cut_out_for_middle_delete() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let skill = fs::read_to_string(format!("{root}/skills/ave/SKILL.md")).unwrap();
+    let plans = fs::read_to_string(format!("{root}/skills/ave/references/plans.md")).unwrap();
+    assert!(
+        skill.contains("Delete a middle section → `cut-out`"),
+        "skill must send middle deletes to cut-out"
+    );
+    assert!(
+        plans.contains("op\": \"cut-out\"") || plans.contains("cut-out in.mp4"),
+        "plans must show cut-out, not two trims + concat"
+    );
+}
+
 fn write_keyed_secs(path: &std::path::Path, secs: u32) {
     let video = format!("testsrc=duration={secs}:size=320x240:rate=30");
     let audio = format!("sine=frequency=1000:duration={secs}");
