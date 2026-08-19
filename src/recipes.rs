@@ -10,6 +10,7 @@ pub fn trim_argv(from: &str, to: &str, input: &str, output: &str, accurate: bool
         vec![
             "ffmpeg".into(),
             "-y".into(),
+            "-accurate_seek".into(),
             "-ss".into(),
             from.into(),
             "-to".into(),

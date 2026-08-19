@@ -57,7 +57,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 |---|---|---|
 | `info` | `<in>` | probe only |
 | `doctor` | | ffmpeg/ffprobe versions |
-| `trim` | `<in> --from T --to T -o OUT` | `--accurate` = frame-accurate re-encode |
+| `trim` | `<in> --from T --to T -o OUT` | `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy if shapes match |
 | `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |
@@ -83,7 +83,7 @@ Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 ## Encode policy
 
 - `trim` / `concat`: stream-copy by default.
-- `trim --accurate` / `"accurate": true`: re-encode.
+- `trim --accurate` / `"accurate": true`: input `-ss` + `-accurate_seek` + re-encode. Not `-c copy`. Do not move `-ss` after `-i`.
 - `concat`: probe; mismatch → re-encode.
 - Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`.
 

@@ -15,6 +15,8 @@ ave trim clip.mp4 --from 30 --to 105 -o keep.mp4
 ave trim clip.mp4 --from 00:00:30 --to 00:01:45 --accurate -o keep.mp4
 ```
 
+Default trim stream-copies (`-ss` / `-to` before `-i`, `-c copy`). `--accurate` keeps those as input options, adds `-accurate_seek`, and re-encodes (`libx264` / `aac`). Do not move `-ss` after `-i`.
+
 ## concat
 
 ```bash

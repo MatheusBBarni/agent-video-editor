@@ -95,6 +95,62 @@ fn run_dry_run_accepts_concat_after_trims() {
     assert_eq!(v["steps"][2]["op"], "concat");
 }
 
+#[test]
+fn run_dry_run_accurate_trim_uses_accurate_seek_recipe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{
+          "steps": [
+            {
+              "op": "trim",
+              "input": "in.mp4",
+              "from": "1",
+              "to": "2",
+              "accurate": true,
+              "output": "out.mp4"
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], true);
+    let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
+        .as_array()
+        .expect("ffmpeg argv")
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        !argv.windows(2).any(|w| w == ["-c", "copy"]),
+        "accurate trim must not stream-copy: {argv:?}"
+    );
+    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
+    assert!(argv.contains(&"aac"), "expected aac in {argv:?}");
+    let seek = argv.iter().position(|&a| a == "-accurate_seek");
+    let ss = argv.iter().position(|&a| a == "-ss");
+    let input = argv.iter().position(|&a| a == "-i");
+    assert!(
+        matches!((seek, input), (Some(seek), Some(i)) if seek < i),
+        "-accurate_seek must be an input option (before -i): {argv:?}"
+    );
+    assert!(
+        matches!((ss, input), (Some(ss), Some(i)) if ss < i),
+        "-ss must appear before -i (input seek): {argv:?}"
+    );
+}
+
 fn ffmpeg_available() -> bool {
     std::process::Command::new("ffmpeg")
         .arg("-version")
