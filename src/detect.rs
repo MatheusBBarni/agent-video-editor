@@ -85,7 +85,18 @@ fn detect_argv(input: &str, kind: Kind) -> Vec<String> {
             "null".into(),
             "-".into(),
         ],
-        Kind::Black | Kind::Scenes => vec!["ffmpeg".into(), "-i".into(), input.into()],
+        Kind::Black => vec![
+            "ffmpeg".into(),
+            "-i".into(),
+            input.into(),
+            "-vf".into(),
+            "blackdetect=d=0.5:pix_th=0.10".into(),
+            "-an".into(),
+            "-f".into(),
+            "null".into(),
+            "-".into(),
+        ],
+        Kind::Scenes => vec!["ffmpeg".into(), "-i".into(), input.into()],
     }
 }
 
