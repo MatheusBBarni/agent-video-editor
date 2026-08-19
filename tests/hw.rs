@@ -174,3 +174,56 @@ fn hw_videotoolbox_compress_keeps_quality_flag() {
         "videotoolbox rejects -crf so it must be substituted: {argv:?}"
     );
 }
+
+#[test]
+fn hw_on_plan_applies_unless_cli_overrides() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(
+        dir.path().join("plan.json"),
+        r#"{"hw":"videotoolbox","steps":[{"op":"resize","input":"in.mp4","preset":"square","output":"out.mp4"}]}"#,
+    )
+    .unwrap();
+
+    let from_plan = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["run", "plan.json", "--dry-run"])
+        .assert()
+        .success();
+    let v: Value = serde_json::from_str(
+        &String::from_utf8_lossy(&from_plan.get_output().stdout).trim(),
+    )
+    .unwrap();
+    let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        argv.contains(&"h264_videotoolbox"),
+        "plan hw should apply: {argv:?}"
+    );
+
+    let from_cli = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["--hw", "none", "run", "plan.json", "--dry-run"])
+        .assert()
+        .success();
+    let v: Value = serde_json::from_str(
+        &String::from_utf8_lossy(&from_cli.get_output().stdout).trim(),
+    )
+    .unwrap();
+    let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_str().unwrap())
+        .collect();
+    assert!(
+        argv.contains(&"libx264"),
+        "CLI --hw should win over plan: {argv:?}"
+    );
+}
