@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ave schema` prints the `run` plan JSON Schema.
+- `ave run --workdir DIR` keeps relative plan outputs out of cwd.
+- `install-skill --provider` adds `codex`, `continue`, `windsurf`, and `copilot`.
 - `resize --width` / `--height` xor `--preset`, plus `--stretch` to skip letterbox pad.
 - Overlay `--x` / `--y`, `--opacity`, and `--from` / `--to`.
 - Global `--human`, `--verbose`, and `--progress`.
