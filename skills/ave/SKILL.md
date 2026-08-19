@@ -58,7 +58,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `info` | `<in>` | duration, coded `width`/`height`, `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height` |
 | `doctor` | | ffmpeg/ffprobe versions |
 | `trim` | `<in> --from T --to T -o OUT` | or `--duration T` instead of `--to`. `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
-| `concat` | `<in...> -o OUT` | ≥2 files; copy if codec, size, fps, and `rotate_deg` match |
+| `concat` | `<in...> -o OUT` | ≥2 files; copy only if every input probes and codec, size, fps, and `rotate_deg` match |
 | `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |
 | `extract-audio` | `<in> -o OUT` | codec from `--format` or `-o` ext (`mp3` `wav` `aac` `flac` `copy`). Video-only → `no_audio` |
@@ -84,7 +84,7 @@ Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 
 - `trim` / `concat`: stream-copy by default.
 - `trim --accurate` / `"accurate": true`: input `-ss` + `-accurate_seek` + re-encode. Not `-c copy`. Do not move `-ss` after `-i`.
-- `concat`: probe; mismatch (including mixed `rotate_deg`) → re-encode. ffmpeg autorotates on that transcode.
+- `concat`: probe every input; mismatch or any failed probe (including mixed `rotate_deg`) → re-encode. ffmpeg autorotates on that transcode.
 - Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`.
 
 ## Do not
