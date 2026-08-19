@@ -9,7 +9,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, replace_audio_choice, require_output};
+use op::{Op, TrimEnd, parse_keep_ranges, replace_audio_choice, require_output};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -54,6 +54,15 @@ enum Command {
         inputs: Vec<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
+    },
+    Keep {
+        input: String,
+        #[arg(long)]
+        ranges: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+        #[arg(long)]
+        accurate: bool,
     },
     #[command(name = "cut-out")]
     CutOut {
@@ -195,6 +204,7 @@ fn usage_op() -> &'static str {
             "info" => Some("info"),
             "concat" => Some("concat"),
             "cut-out" => Some("cut-out"),
+            "keep" => Some("keep"),
             "resize" => Some("resize"),
             "convert" => Some("convert"),
             "compress" => Some("compress"),
@@ -303,6 +313,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
                 output: require_output("concat", output)?,
             })
         }
+        Command::Keep {
+            input,
+            ranges,
+            output,
+            accurate,
+        } => Ok(Op::Keep {
+            input,
+            ranges: parse_keep_ranges(&ranges, "keep")?,
+            output: require_output("keep", output)?,
+            accurate,
+        }),
         Command::CutOut {
             input,
             from,

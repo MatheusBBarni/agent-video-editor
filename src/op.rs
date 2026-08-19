@@ -72,6 +72,12 @@ impl TrimEnd {
 }
 
 #[derive(Debug, Clone)]
+pub struct KeepRange {
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Clone)]
 pub enum Op {
     Trim {
         input: String,
@@ -88,6 +94,12 @@ pub enum Op {
         input: String,
         from: String,
         to: String,
+        output: String,
+        accurate: bool,
+    },
+    Keep {
+        input: String,
+        ranges: Vec<KeepRange>,
         output: String,
         accurate: bool,
     },
@@ -143,6 +155,7 @@ impl Op {
             Self::Trim { .. } => "trim",
             Self::Concat { .. } => "concat",
             Self::CutOut { .. } => "cut-out",
+            Self::Keep { .. } => "keep",
             Self::Resize { .. } => "resize",
             Self::Speed { .. } => "speed",
             Self::ExtractAudio { .. } => "extract-audio",
@@ -160,6 +173,7 @@ impl Op {
             Self::Trim { output, .. }
             | Self::Concat { output, .. }
             | Self::CutOut { output, .. }
+            | Self::Keep { output, .. }
             | Self::Resize { output, .. }
             | Self::Speed { output, .. }
             | Self::ExtractAudio { output, .. }
@@ -175,6 +189,7 @@ impl Op {
         match self {
             Self::Trim { input, .. }
             | Self::CutOut { input, .. }
+            | Self::Keep { input, .. }
             | Self::Resize { input, .. }
             | Self::Speed { input, .. }
             | Self::ExtractAudio { input, .. }
@@ -258,6 +273,31 @@ impl Op {
                     input: req("input")?,
                     from,
                     to,
+                    output: req("output")?,
+                    accurate: step["accurate"].as_bool().unwrap_or(false),
+                })
+            }
+            "keep" => {
+                let raw = step["ranges"]
+                    .as_array()
+                    .ok_or_else(|| Error::new("run", "missing_field", "keep requires ranges"))?;
+                if raw.is_empty() {
+                    return Err(Error::new(
+                        "run",
+                        "bad_range",
+                        "keep requires at least one range",
+                    ));
+                }
+                let mut ranges = Vec::new();
+                for value in raw {
+                    let spec = value.as_str().ok_or_else(|| {
+                        Error::new("run", "bad_range", "keep ranges must be strings")
+                    })?;
+                    ranges.push(parse_keep_range(spec, "run")?);
+                }
+                Ok(Self::Keep {
+                    input: req("input")?,
+                    ranges,
                     output: req("output")?,
                     accurate: step["accurate"].as_bool().unwrap_or(false),
                 })
@@ -396,6 +436,54 @@ pub fn parse_timestamp(raw: &str) -> Option<f64> {
         }
         _ => None,
     }
+}
+
+pub fn parse_keep_ranges(raw: &str, op: &'static str) -> Result<Vec<KeepRange>, Error> {
+    let items: Vec<&str> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    if items.is_empty() {
+        return Err(Error::new(
+            op,
+            "bad_range",
+            "keep requires at least one range",
+        ));
+    }
+    items
+        .into_iter()
+        .map(|item| parse_keep_range(item, op))
+        .collect()
+}
+
+pub fn parse_keep_range(raw: &str, op: &'static str) -> Result<KeepRange, Error> {
+    let (from, to) = raw
+        .split_once('-')
+        .ok_or_else(|| Error::new(op, "bad_range", format!("invalid range: {raw}")))?;
+    let from = from.trim();
+    let to = to.trim();
+    if from.is_empty() || to.is_empty() {
+        return Err(Error::new(op, "bad_range", format!("invalid range: {raw}")));
+    }
+    if parse_timestamp(from).is_none() {
+        return Err(Error::new(
+            op,
+            "bad_timestamp",
+            format!("invalid timestamp: {from}"),
+        ));
+    }
+    if to != "end" && parse_timestamp(to).is_none() {
+        return Err(Error::new(
+            op,
+            "bad_timestamp",
+            format!("invalid timestamp: {to}"),
+        ));
+    }
+    Ok(KeepRange {
+        from: from.to_string(),
+        to: to.to_string(),
+    })
 }
 
 fn parse_nonneg_finite(raw: &str) -> Option<f64> {

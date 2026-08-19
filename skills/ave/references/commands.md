@@ -29,6 +29,15 @@ ave cut-out clip.mp4 --from 12 --to 18 --accurate -o kept.mp4
 
 Deletes from-to and joins what remains. `end` comes from ffprobe. Do not pass it, and do not write two trims plus concat. `--accurate` applies to both internal trims. `from >= to` or `to` past the file end is `bad_range`.
 
+## keep
+
+```bash
+ave keep clip.mp4 --ranges 0-2,5-8 -o kept.mp4
+ave keep vod.mp4 --ranges 0-18:40,19:17-1:18:20,1:18:24-end -o vod2.mp4
+```
+
+Keeps each FROM-TO and joins them. end as TO means the probed duration. Overlap, FROM >= TO, or TO past the file end is bad_range. User listed N cuts uses keep --ranges, not N trims + concat.
+
 ## concat
 
 ```bash

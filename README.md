@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, cut-out, concat, resize, speed, extract/replace audio, overlay, compress, and convert
+- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, and convert
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -86,6 +86,7 @@ Delete a middle section with one verb (do not write two trims + concat):
 
 ```bash
 ave cut-out in.mp4 --from 12 --to 18 -o out.mp4
+ave keep in.mp4 --ranges 0-2,5-8,9-end -o out.mp4
 ```
 
 Several other steps in one go:
@@ -125,6 +126,7 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `doctor` | Check ffmpeg / ffprobe |
 | `trim` | Cut a range with `--to` or `--duration`. `--accurate` re-encodes for frame-accurate in/out |
 | `cut-out` | Delete `[from, to)` and join what remains. Probes the file end |
+| `keep` | Keep `--ranges FROM-TO,...` and join. `end` is probed |
 | `concat` | Join clips. Copies when every input probes and codec, size, fps, and rotation match; re-encodes otherwise |
 | `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. Pads, does not stretch |
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |

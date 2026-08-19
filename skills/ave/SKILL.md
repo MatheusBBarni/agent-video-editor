@@ -34,7 +34,7 @@ ave install-skill --provider all --global
 2. Prefer the file the user named. Else the newest video in cwd.
 3. `ave info <file>` — recap duration, coded size, codecs, fps, audio, rotation, display size.
 4. Vague ask → ask what to change. Concrete ask → plan, then run.
-5. Delete a middle section → `cut-out`, not two trims + concat. Several other verbs → one `ave run` plan. Single op → the verb.
+5. One hole → `cut-out`. User listed N cuts → `keep --ranges`, not N trims + concat. Several other verbs → one `ave run` plan.
 6. `--dry-run` first when unsure. Then run for real.
 7. Reply with output path, duration, resolution, size from the JSON.
 
@@ -59,6 +59,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `doctor` | | ffmpeg/ffprobe versions |
 | `trim` | `<in> --from T --to T -o OUT` | or `--duration T` instead of `--to`. `--accurate` = input `-ss` + `-accurate_seek` + re-encode |
 | `cut-out` | `<in> --from T --to T -o OUT` | delete `[from, to)`; keeps the rest and joins. Probes `end`. `--accurate` applies to both trims |
+| `keep` | `<in> --ranges A-B,C-end -o OUT` | keep those ranges and join. `end` is probed. User listed N cuts → `keep --ranges` |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy only if every input probes and codec, size, fps, and `rotate_deg` match. Do not remux clips to `.ts` yourself; `ave concat` resets timestamps. |
 | `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |

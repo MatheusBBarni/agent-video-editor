@@ -280,8 +280,8 @@ fn skill_uses_cut_out_for_middle_delete() {
     let skill = fs::read_to_string(format!("{root}/skills/ave/SKILL.md")).unwrap();
     let plans = fs::read_to_string(format!("{root}/skills/ave/references/plans.md")).unwrap();
     assert!(
-        skill.contains("Delete a middle section → `cut-out`"),
-        "skill must send middle deletes to cut-out"
+        skill.contains("One hole → `cut-out`"),
+        "skill must send a single hole to cut-out"
     );
     assert!(
         plans.contains("op\": \"cut-out\"") || plans.contains("cut-out in.mp4"),
