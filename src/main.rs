@@ -9,7 +9,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, parse_keep_ranges, replace_audio_choice, require_output};
+use op::{Op, TrimEnd, parse_keep_ranges, replace_audio_choice, require_output, require_subtitle_file};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -146,6 +146,13 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Captions {
+        input: String,
+        #[arg(long)]
+        srt: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
@@ -226,6 +233,7 @@ fn usage_op() -> &'static str {
             "extract-audio" => Some("extract-audio"),
             "speed" => Some("speed"),
             "frame" => Some("frame"),
+            "captions" => Some("captions"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -428,6 +436,11 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             input,
             output: require_output("speed", output)?,
             factor,
+        }),
+        Command::Captions { input, srt, output } => Ok(Op::Captions {
+            input,
+            srt: require_subtitle_file("captions", srt)?,
+            output: require_output("captions", output)?,
         }),
         Command::Frame { input, at, output } => {
             if op::parse_timestamp(&at).is_none() {

@@ -149,6 +149,11 @@ pub enum Op {
         at: String,
         output: String,
     },
+    Captions {
+        input: String,
+        srt: String,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -170,6 +175,7 @@ impl Op {
             Self::Compress { .. } => "compress",
             Self::Convert { .. } => "convert",
             Self::Frame { .. } => "frame",
+            Self::Captions { .. } => "captions",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -188,7 +194,8 @@ impl Op {
             | Self::Overlay { output, .. }
             | Self::Compress { output, .. }
             | Self::Convert { output, .. }
-            | Self::Frame { output, .. } => Some(output),
+            | Self::Frame { output, .. }
+            | Self::Captions { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -205,6 +212,7 @@ impl Op {
             | Self::Convert { input, .. }
             | Self::Frame { input, .. }
             | Self::Info { input } => vec![input],
+            Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
             Self::ReplaceAudio {
                 input, audio, mix, ..
@@ -378,6 +386,11 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "captions" => Ok(Self::Captions {
+                input: req("input")?,
+                srt: require_subtitle_file("run", req("srt")?)?,
+                output: req("output")?,
+            }),
             "frame" => {
                 let at = req("at")?;
                 if parse_timestamp(&at).is_none() {
@@ -541,6 +554,22 @@ pub fn replace_audio_choice(
             op,
             "conflicting_flags",
             "replace-audio accepts only one of mute, audio, or mix",
+        )),
+    }
+}
+
+pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, Error> {
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "srt" | "vtt" => Ok(path),
+        _ => Err(Error::new(
+            op,
+            "unknown_format",
+            format!("captions require .srt or .vtt: {path}"),
         )),
     }
 }

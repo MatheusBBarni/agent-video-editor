@@ -335,6 +335,15 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn captions_vf(srt: &str) -> String {
+    let escaped = srt.replace('\\', "\\\\").replace(':', "\\:");
+    format!("subtitles={escaped}")
+}
+
+pub fn captions_argv(input: &str, srt: &str, output: &str, has_audio: bool) -> Vec<String> {
+    resize_argv(input, output, &captions_vf(srt), has_audio)
+}
+
 pub fn frame_argv(input: &str, at: &str, output: &str) -> Vec<String> {
     vec![
         "ffmpeg".into(),

@@ -371,6 +371,19 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Captions {
+            input,
+            srt,
+            output,
+        } => Ok(Job {
+            argv: recipes::with_bin(
+                recipes::captions_argv(input, srt, output, audio.unwrap_or(false)),
+                bin,
+            ),
+            passes: None,
+            cleanup: vec![],
+            reencode: true,
+        }),
         Op::Frame {
             input,
             at,
