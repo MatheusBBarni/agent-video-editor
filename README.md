@@ -21,7 +21,7 @@ Agents kept inventing ffmpeg flags. This CLI is the recipes from a video-edit sk
 
 ## Features
 
-- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, and convert
+- Verbs for trim, cut-out, keep, concat, resize, speed, extract/replace audio, overlay, compress, convert, frame, captions, text, fade, volume, and rotate
 - `--dry-run` prints the exact ffmpeg argv and writes nothing
 - `ave run plan.json` for multi-step jobs (cut a middle, trim then resize, …)
 - Stream-copy when the files already match; re-encode only when the op needs it
@@ -128,7 +128,13 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `cut-out` | Delete `[from, to)` and join what remains. Probes the file end |
 | `keep` | Keep `--ranges FROM-TO,...` and join. `end` is probed |
 | `concat` | Join clips. Copies when every input probes and codec, size, fps, and rotation match; re-encodes otherwise |
-| `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. Pads, does not stretch |
+| `resize` | `--preset tiktok`, `youtube`, `twitter`, `instagram`, or `square`. `--fit pad` (default), `crop`, or `stretch`. Or `--width` / `--height` |
+| `frame` | One still at `--at T`. Format from `-o` ext |
+| `captions` | Burn `--srt` (`.srt` or `.vtt`) |
+| `text` | One title. `--position lower-third` / `center` / `top` |
+| `fade` | `--in` and/or `--out` seconds |
+| `volume` | `--db` signed dB |
+| `rotate` | `--deg 90` / `180` / `270` (transpose, not metadata) |
 | `speed` | `--factor 2` is twice as fast, `0.5` is half |
 | `extract-audio` | Pull audio. Format from `--format` or the output extension |
 | `replace-audio` | `--mute`, `--audio FILE`, or `--mix FILE` |
@@ -138,11 +144,11 @@ Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 | `run` | JSON plan, or `-` for stdin |
 | `install-skill` | Install the agent skill into one provider folder; symlink the rest |
 
-Resize presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080.
+Resize presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080. `--fit pad` letterboxes; `crop` fills; `stretch` ignores aspect.
 
-Trim and concat copy streams when they can. Resize, speed, overlay, compress, and GIF convert always re-encode.
+Trim and concat copy streams when they can. Resize, speed, overlay, compress, GIF convert, captions, text, fade, volume, rotate, and frame always re-encode (`--copy-only` fails).
 
-This will not color grade, burn captions, cut a multi-cam show, or upload to YouTube.
+This will not color grade, cut a multi-cam show, or upload to YouTube.
 
 More examples: [`skills/ave/references/commands.md`](skills/ave/references/commands.md). Plan fields: [`skills/ave/references/plans.md`](skills/ave/references/plans.md).
 

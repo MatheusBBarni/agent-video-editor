@@ -28,7 +28,13 @@ Unknown `op` or missing required fields → fail **before** any step. Step failu
 | `cut-out` | `input`, `from`, `to`, `output` | `accurate` |
 | `keep` | `input`, `ranges`, `output` | `accurate` |
 | `concat` | `inputs` (≥2), `output` | |
-| `resize` | `input`, `output`, `preset` **or** `width`+`height` | |
+| `resize` | `input`, `output`, `preset` **or** `width`+`height` | `fit` (`pad`/`crop`/`stretch`) |
+| `frame` | `input`, `at`, `output` | |
+| `captions` | `input`, `srt`, `output` | |
+| `text` | `input`, `text`, `output` | `position`, `from`, `to` |
+| `fade` | `input`, `output`, and at least one of `in` / `out` | |
+| `volume` | `input`, `db`, `output` | |
+| `rotate` | `input`, `deg`, `output` | |
 | `speed` | `input`, `output`, `factor` | |
 | `extract-audio` | `input`, `output` | `format` |
 | `replace-audio` | `input`, `output`, and one of `mute` / `audio` / `mix` | |

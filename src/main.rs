@@ -9,7 +9,10 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use error::{Error, RunEnvelope, print_json};
 use exec::{Ctx, Outcome, execute, run_plan};
-use op::{Op, TrimEnd, parse_keep_ranges, replace_audio_choice, require_output};
+use op::{
+    Op, TrimEnd, fade_pair, parse_db, parse_fit, parse_keep_ranges, parse_rotate_deg,
+    parse_text_pos, replace_audio_choice, require_output, require_subtitle_file, text_span,
+};
 
 #[derive(Parser)]
 #[command(name = "ave")]
@@ -80,6 +83,12 @@ enum Command {
         input: String,
         #[arg(long)]
         preset: Option<String>,
+        #[arg(long)]
+        width: Option<u32>,
+        #[arg(long)]
+        height: Option<u32>,
+        #[arg(long)]
+        fit: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -130,6 +139,56 @@ enum Command {
         input: String,
         #[arg(long)]
         factor: f64,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Frame {
+        input: String,
+        #[arg(long)]
+        at: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Captions {
+        input: String,
+        #[arg(long)]
+        srt: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Rotate {
+        input: String,
+        #[arg(long)]
+        deg: u32,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Volume {
+        input: String,
+        #[arg(long, allow_hyphen_values = true)]
+        db: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Fade {
+        input: String,
+        #[arg(long = "in")]
+        fade_in: Option<String>,
+        #[arg(long = "out")]
+        fade_out: Option<String>,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
+    Text {
+        input: String,
+        #[arg(long)]
+        text: String,
+        #[arg(long)]
+        position: Option<String>,
+        #[arg(long)]
+        from: Option<String>,
+        #[arg(long)]
+        to: Option<String>,
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
@@ -212,6 +271,12 @@ fn usage_op() -> &'static str {
             "replace-audio" => Some("replace-audio"),
             "extract-audio" => Some("extract-audio"),
             "speed" => Some("speed"),
+            "frame" => Some("frame"),
+            "captions" => Some("captions"),
+            "text" => Some("text"),
+            "fade" => Some("fade"),
+            "volume" => Some("volume"),
+            "rotate" => Some("rotate"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -343,13 +408,17 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
         Command::Resize {
             input,
             preset,
+            width,
+            height,
+            fit,
             output,
         } => Ok(Op::Resize {
             input,
             output: require_output("resize", output)?,
             preset,
-            width: None,
-            height: None,
+            width,
+            height,
+            fit: parse_fit(fit.as_deref(), "resize")?,
         }),
         Command::Convert { input, output } => Ok(Op::Convert {
             input,
@@ -411,5 +480,62 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             output: require_output("speed", output)?,
             factor,
         }),
+        Command::Rotate { input, deg, output } => Ok(Op::Rotate {
+            input,
+            deg: parse_rotate_deg(deg, "rotate")?,
+            output: require_output("rotate", output)?,
+        }),
+        Command::Volume { input, db, output } => Ok(Op::Volume {
+            input,
+            db: parse_db("volume", &db)?,
+            output: require_output("volume", output)?,
+        }),
+        Command::Fade {
+            input,
+            fade_in,
+            fade_out,
+            output,
+        } => {
+            let (fade_in, fade_out) = fade_pair(fade_in, fade_out, "fade")?;
+            Ok(Op::Fade {
+                input,
+                fade_in,
+                fade_out,
+                output: require_output("fade", output)?,
+            })
+        }
+        Command::Text {
+            input,
+            text,
+            position,
+            from,
+            to,
+            output,
+        } => Ok(Op::Text {
+            input,
+            text,
+            position: parse_text_pos(position.as_deref(), "text")?,
+            span: text_span(from, to, "text")?,
+            output: require_output("text", output)?,
+        }),
+        Command::Captions { input, srt, output } => Ok(Op::Captions {
+            input,
+            srt: require_subtitle_file("captions", srt)?,
+            output: require_output("captions", output)?,
+        }),
+        Command::Frame { input, at, output } => {
+            if op::parse_timestamp(&at).is_none() {
+                return Err(error::Error::new(
+                    "frame",
+                    "bad_timestamp",
+                    format!("invalid timestamp: {at}"),
+                ));
+            }
+            Ok(Op::Frame {
+                input,
+                at,
+                output: require_output("frame", output)?,
+            })
+        }
     }
 }

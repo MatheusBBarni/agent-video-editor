@@ -149,7 +149,9 @@ fn keep_writes_selected_ranges() {
         .collect();
     assert!(
         leftover.iter().all(|name| {
-            name == "in.mp4" || name == "out.mp4" || (!name.ends_with(".ts") && !name.starts_with("ave-"))
+            name == "in.mp4"
+                || name == "out.mp4"
+                || (!name.ends_with(".ts") && !name.starts_with("ave-"))
         }),
         "keep must not leave temps in cwd: {leftover:?}"
     );

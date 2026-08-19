@@ -4,7 +4,8 @@ description: >
   Edit videos with the ave CLI (ffmpeg recipes, JSON stdout). Use when trimming,
   cutting, concatenating, resizing for TikTok/YouTube/Instagram, changing speed,
   extracting or replacing audio, overlaying a logo, compressing, converting
-  (including GIF), probing video info, or running a multi-step edit plan.
+  (including GIF), burning captions, drawing a title, fading, changing volume,
+  rotating, grabbing a still, probing video info, or running a multi-step edit plan.
   Prefer ave over raw ffmpeg. Do not invent ffmpeg flags.
 ---
 
@@ -61,18 +62,24 @@ ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH] 
 | `cut-out` | `<in> --from T --to T -o OUT` | delete `[from, to)`; keeps the rest and joins. Probes `end`. `--accurate` applies to both trims |
 | `keep` | `<in> --ranges A-B,C-end -o OUT` | keep those ranges and join. `end` is probed. User listed N cuts → `keep --ranges` |
 | `concat` | `<in...> -o OUT` | ≥2 files; copy only if every input probes and codec, size, fps, and `rotate_deg` match. Do not remux clips to `.ts` yourself; `ave concat` resets timestamps. |
-| `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square` |
+| `resize` | `<in> --preset NAME -o OUT` | `tiktok` `youtube` `twitter` `instagram` `square`. `--fit pad` (default) `crop` `stretch`. Or `--width W --height H` |
 | `speed` | `<in> --factor N -o OUT` | `4` = 4×; `0.5` = half |
 | `extract-audio` | `<in> -o OUT` | codec from `--format` or `-o` ext (`mp3` `wav` `aac` `flac` `copy`). Video-only → `no_audio` |
 | `replace-audio` | `<in> -o OUT` | `--mute` or `--audio FILE` or `--mix FILE` |
 | `overlay` | `<in> --image IMG -o OUT` | `--position` `top-right` (default) `top-left` `bottom-left` `bottom-right` `center` |
 | `compress` | `<in> -o OUT` | `--crf 23` `--preset medium` |
 | `convert` | `<in> -o OUT` | format from `-o` ext; `.gif` = two-pass |
+| `frame` | `<in> --at T -o STILL` | one still; ext is `jpg`/`png`/`webp`. `--copy-only` fails |
+| `captions` | `<in> --srt FILE -o OUT` | burn `.srt` or `.vtt`. No styling DSL |
+| `text` | `<in> --text STR -o OUT` | `--position lower-third` (default) `center` `top`. Optional `--from` `--to` |
+| `fade` | `<in> --in SEC --out SEC -o OUT` | at least one of `--in` / `--out` |
+| `volume` | `<in> --db N -o OUT` | signed dB (`-6`, `3`) |
+| `rotate` | `<in> --deg 90 -o OUT` | `90` `180` `270` only; re-encodes with `transpose` |
 | `run` | `plan.json` or `-` | JSON step list; see `references/plans.md`. No `info` / `doctor` steps |
 
 Timestamps: `HH:MM:SS`, `HH:MM:SS.mmm`, `MM:SS`, or seconds (`90`, `90.5`). Invalid values fail with `bad_timestamp`; `from >= to` or `duration <= 0` fail with `bad_range`.
 
-Presets pad, they do not stretch: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080.
+Presets: tiktok 1080×1920, youtube/twitter 1920×1080, instagram 1080×1350, square 1080×1080. `--fit pad` letterboxes (default). `--fit crop` fills and center-crops. `--fit stretch` scales with no pad.
 
 More examples: `references/commands.md`.
 
@@ -87,11 +94,11 @@ Parse stdout as JSON. Do not scrape ffmpeg banners (they are not on stdout).
 - `trim` / `concat`: stream-copy by default.
 - `trim --accurate` / `"accurate": true`: input `-ss` + `-accurate_seek` + re-encode. Not `-c copy`. Do not move `-ss` after `-i`.
 - `concat`: probe every input; mismatch or any failed probe (including mixed `rotate_deg`) → re-encode. ffmpeg autorotates on that transcode. Matching copy remuxes through MPEG-TS so DTS stays monotonic.
-- Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`.
+- Always re-encode: `resize`, `speed`, `overlay`, `compress`, GIF `convert`, `captions`, `text`, `fade`, `volume`, `rotate`, `frame`.
 
 ## Do not
 
 - Invent ffmpeg filter graphs.
 - Guess cut points or match boundaries.
 - Download stock media unless asked.
-- Use this for color grade, captions, multi-cam, or YouTube upload.
+- Use this for color grade, multi-cam, karaoke, or YouTube upload.

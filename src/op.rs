@@ -109,6 +109,7 @@ pub enum Op {
         preset: Option<String>,
         width: Option<u32>,
         height: Option<u32>,
+        fit: recipes::Fit,
     },
     Speed {
         input: String,
@@ -143,6 +144,39 @@ pub enum Op {
         input: String,
         output: String,
     },
+    Frame {
+        input: String,
+        at: String,
+        output: String,
+    },
+    Captions {
+        input: String,
+        srt: String,
+        output: String,
+    },
+    Rotate {
+        input: String,
+        deg: recipes::RotateDeg,
+        output: String,
+    },
+    Volume {
+        input: String,
+        db: f64,
+        output: String,
+    },
+    Fade {
+        input: String,
+        fade_in: Option<f64>,
+        fade_out: Option<f64>,
+        output: String,
+    },
+    Text {
+        input: String,
+        text: String,
+        position: recipes::TextPos,
+        span: Option<(String, String)>,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -163,6 +197,12 @@ impl Op {
             Self::Overlay { .. } => "overlay",
             Self::Compress { .. } => "compress",
             Self::Convert { .. } => "convert",
+            Self::Frame { .. } => "frame",
+            Self::Captions { .. } => "captions",
+            Self::Text { .. } => "text",
+            Self::Fade { .. } => "fade",
+            Self::Volume { .. } => "volume",
+            Self::Rotate { .. } => "rotate",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -180,7 +220,13 @@ impl Op {
             | Self::ReplaceAudio { output, .. }
             | Self::Overlay { output, .. }
             | Self::Compress { output, .. }
-            | Self::Convert { output, .. } => Some(output),
+            | Self::Convert { output, .. }
+            | Self::Frame { output, .. }
+            | Self::Captions { output, .. }
+            | Self::Text { output, .. }
+            | Self::Fade { output, .. }
+            | Self::Volume { output, .. }
+            | Self::Rotate { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -195,7 +241,13 @@ impl Op {
             | Self::ExtractAudio { input, .. }
             | Self::Compress { input, .. }
             | Self::Convert { input, .. }
+            | Self::Frame { input, .. }
+            | Self::Text { input, .. }
+            | Self::Fade { input, .. }
+            | Self::Volume { input, .. }
+            | Self::Rotate { input, .. }
             | Self::Info { input } => vec![input],
+            Self::Captions { input, srt, .. } => vec![input, srt],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
             Self::ReplaceAudio {
                 input, audio, mix, ..
@@ -320,6 +372,7 @@ impl Op {
                     preset: step["preset"].as_str().map(str::to_string),
                     width: step["width"].as_u64().map(|n| n as u32),
                     height: step["height"].as_u64().map(|n| n as u32),
+                    fit: parse_fit(step["fit"].as_str(), "run")?,
                 })
             }
             "speed" => {
@@ -368,6 +421,69 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "rotate" => {
+                let deg = step["deg"]
+                    .as_u64()
+                    .ok_or_else(|| Error::new("run", "missing_field", "rotate requires deg"))?;
+                Ok(Self::Rotate {
+                    input: req("input")?,
+                    deg: parse_rotate_deg(deg as u32, "run")?,
+                    output: req("output")?,
+                })
+            }
+            "volume" => {
+                let db = json_string_or_number(&step["db"])
+                    .ok_or_else(|| Error::new("run", "missing_field", "volume requires db"))?;
+                Ok(Self::Volume {
+                    input: req("input")?,
+                    db: parse_db("run", &db)?,
+                    output: req("output")?,
+                })
+            }
+            "fade" => {
+                let (fade_in, fade_out) = fade_pair(
+                    json_string_or_number(&step["in"]),
+                    json_string_or_number(&step["out"]),
+                    "run",
+                )?;
+                Ok(Self::Fade {
+                    input: req("input")?,
+                    fade_in,
+                    fade_out,
+                    output: req("output")?,
+                })
+            }
+            "text" => Ok(Self::Text {
+                input: req("input")?,
+                text: req("text")?,
+                position: parse_text_pos(step["position"].as_str(), "run")?,
+                span: text_span(
+                    json_string_or_number(&step["from"]),
+                    json_string_or_number(&step["to"]),
+                    "run",
+                )?,
+                output: req("output")?,
+            }),
+            "captions" => Ok(Self::Captions {
+                input: req("input")?,
+                srt: require_subtitle_file("run", req("srt")?)?,
+                output: req("output")?,
+            }),
+            "frame" => {
+                let at = req("at")?;
+                if parse_timestamp(&at).is_none() {
+                    return Err(Error::new(
+                        "run",
+                        "bad_timestamp",
+                        format!("invalid timestamp: {at}"),
+                    ));
+                }
+                Ok(Self::Frame {
+                    input: req("input")?,
+                    at,
+                    output: req("output")?,
+                })
+            }
             "info" | "doctor" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
@@ -516,6 +632,141 @@ pub fn replace_audio_choice(
             op,
             "conflicting_flags",
             "replace-audio accepts only one of mute, audio, or mix",
+        )),
+    }
+}
+
+pub fn parse_fit(raw: Option<&str>, op: &'static str) -> Result<recipes::Fit, Error> {
+    match raw.unwrap_or("pad") {
+        "pad" => Ok(recipes::Fit::Pad),
+        "crop" => Ok(recipes::Fit::Crop),
+        "stretch" => Ok(recipes::Fit::Stretch),
+        other => Err(Error::new(
+            op,
+            "unknown_fit",
+            format!("unknown fit: {other}"),
+        )),
+    }
+}
+
+pub fn parse_text_pos(raw: Option<&str>, op: &'static str) -> Result<recipes::TextPos, Error> {
+    match raw.unwrap_or("lower-third") {
+        "lower-third" => Ok(recipes::TextPos::LowerThird),
+        "center" => Ok(recipes::TextPos::Center),
+        "top" => Ok(recipes::TextPos::Top),
+        other => Err(Error::new(
+            op,
+            "unknown_position",
+            format!("unknown position: {other}"),
+        )),
+    }
+}
+
+pub fn text_span(
+    from: Option<String>,
+    to: Option<String>,
+    op: &'static str,
+) -> Result<Option<(String, String)>, Error> {
+    match (from.filter(|s| !s.is_empty()), to.filter(|s| !s.is_empty())) {
+        (None, None) => Ok(None),
+        (Some(from), Some(to)) => {
+            let from_s = parse_timestamp(&from).ok_or_else(|| {
+                Error::new(op, "bad_timestamp", format!("invalid timestamp: {from}"))
+            })?;
+            let to_s = parse_timestamp(&to).ok_or_else(|| {
+                Error::new(op, "bad_timestamp", format!("invalid timestamp: {to}"))
+            })?;
+            if from_s >= to_s {
+                return Err(Error::new(op, "bad_range", "from must be less than to"));
+            }
+            Ok(Some((from, to)))
+        }
+        _ => Err(Error::new(
+            op,
+            "missing_field",
+            "text requires both from and to, or neither",
+        )),
+    }
+}
+
+pub fn parse_rotate_deg(deg: u32, op: &'static str) -> Result<recipes::RotateDeg, Error> {
+    match deg {
+        90 => Ok(recipes::RotateDeg::D90),
+        180 => Ok(recipes::RotateDeg::D180),
+        270 => Ok(recipes::RotateDeg::D270),
+        _ => Err(Error::new(
+            op,
+            "bad_range",
+            format!("rotate accepts 90, 180, or 270: {deg}"),
+        )),
+    }
+}
+
+pub fn parse_db(op: &'static str, raw: &str) -> Result<f64, Error> {
+    let db: f64 = raw
+        .parse()
+        .map_err(|_| Error::new(op, "bad_range", format!("invalid db value: {raw}")))?;
+    if !db.is_finite() {
+        return Err(Error::new(
+            op,
+            "bad_range",
+            format!("invalid db value: {raw}"),
+        ));
+    }
+    Ok(db)
+}
+
+fn parse_fade_secs(raw: &str, op: &'static str) -> Result<f64, Error> {
+    let secs = parse_timestamp(raw)
+        .ok_or_else(|| Error::new(op, "bad_timestamp", format!("invalid timestamp: {raw}")))?;
+    if secs <= 0.0 {
+        return Err(Error::new(
+            op,
+            "bad_range",
+            "fade duration must be greater than 0",
+        ));
+    }
+    Ok(secs)
+}
+
+pub fn fade_pair(
+    fade_in: Option<String>,
+    fade_out: Option<String>,
+    op: &'static str,
+) -> Result<(Option<f64>, Option<f64>), Error> {
+    let fade_in = fade_in.filter(|s| !s.is_empty());
+    let fade_out = fade_out.filter(|s| !s.is_empty());
+    if fade_in.is_none() && fade_out.is_none() {
+        return Err(Error::new(
+            op,
+            "missing_field",
+            "fade requires --in or --out",
+        ));
+    }
+    Ok((
+        fade_in
+            .as_deref()
+            .map(|v| parse_fade_secs(v, op))
+            .transpose()?,
+        fade_out
+            .as_deref()
+            .map(|v| parse_fade_secs(v, op))
+            .transpose()?,
+    ))
+}
+
+pub fn require_subtitle_file(op: &'static str, path: String) -> Result<String, Error> {
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "srt" | "vtt" => Ok(path),
+        _ => Err(Error::new(
+            op,
+            "unknown_format",
+            format!("captions require .srt or .vtt: {path}"),
         )),
     }
 }
