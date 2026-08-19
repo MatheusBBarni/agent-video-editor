@@ -79,6 +79,23 @@ fn install_skill_without_provider_lists_choices() {
 }
 
 #[test]
+fn install_skill_continue_writes_documented_path() {
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["install-skill", "--provider", "continue"])
+        .assert()
+        .success();
+
+    assert!(
+        dir.path().join(".continue/skills/ave/SKILL.md").is_file(),
+        "continue provider should write .continue/skills/ave"
+    );
+}
+
+#[test]
 fn install_skill_provider_writes_only_that_folder() {
     let dir = tempfile::tempdir().unwrap();
 
