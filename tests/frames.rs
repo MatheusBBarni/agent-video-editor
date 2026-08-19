@@ -1,6 +1,6 @@
 mod common;
 
-use common::ave_json;
+use common::{ave_json, ffmpeg_available, write_fixture};
 use std::fs;
 
 #[test]
@@ -140,4 +140,24 @@ fn frames_unsupported_in_run() {
     let (ok, v) = ave_json(&dir, &["run", "plan.json", "--dry-run"]);
     assert!(!ok);
     assert_eq!(v["error"], "unsupported_in_run");
+}
+
+#[test]
+fn frames_every_30_on_one_second_writes_one_still() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("in.mp4"));
+    let (ok, v) = ave_json(
+        &dir,
+        &["frames", "in.mp4", "--every", "30", "-o", "review"],
+    );
+    assert!(ok, "{v}");
+    let frames = v["frames"].as_array().expect("frames");
+    assert_eq!(frames.len(), 1, "floor(1/30)+1 stills: {v}");
+    assert_eq!(frames[0]["at"], "0");
+    assert_eq!(frames[0]["path"], "review/t-0.jpg");
+    assert!(dir.path().join("review/t-0.jpg").exists());
 }
