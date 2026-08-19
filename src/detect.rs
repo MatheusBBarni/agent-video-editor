@@ -1,4 +1,4 @@
-use crate::error::{DetectEnvelope, Error};
+use crate::error::{DetectEnvelope, DetectSegment, Error};
 use crate::exec::{Ctx, Outcome};
 use crate::op::Op;
 use crate::recipes;
@@ -45,18 +45,15 @@ pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
         ));
     }
     let argv = recipes::with_bin(detect_argv(input, *kind), &ctx.ffmpeg);
-    if ctx.dry_run {
-        return Ok(detect_ok(input, *kind, Vec::new(), argv));
-    }
-    Err(Error::new("detect", "internal", "detect is not implemented"))
+    let segments = if ctx.dry_run {
+        Vec::new()
+    } else {
+        parse_segments(*kind, &run_detect(&argv)?)
+    };
+    Ok(detect_ok(input, *kind, segments, argv))
 }
 
-fn detect_ok(
-    input: &str,
-    kind: Kind,
-    segments: Vec<crate::error::DetectSegment>,
-    argv: Vec<String>,
-) -> Outcome {
+fn detect_ok(input: &str, kind: Kind, segments: Vec<DetectSegment>, argv: Vec<String>) -> Outcome {
     Outcome::Detect(DetectEnvelope {
         ok: true,
         op: "detect",
@@ -81,4 +78,51 @@ fn detect_argv(input: &str, kind: Kind) -> Vec<String> {
         ],
         Kind::Black | Kind::Scenes => vec!["ffmpeg".into(), "-i".into(), input.into()],
     }
+}
+
+fn run_detect(argv: &[String]) -> Result<String, Error> {
+    let output = std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .output()
+        .map_err(|e| Error::ffmpeg("detect", e.to_string()))?;
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    if output.status.success() {
+        Ok(stderr)
+    } else {
+        Err(Error::ffmpeg("detect", stderr))
+    }
+}
+
+fn parse_segments(kind: Kind, log: &str) -> Vec<DetectSegment> {
+    match kind {
+        Kind::Silence => parse_silence(log),
+        Kind::Black | Kind::Scenes => Vec::new(),
+    }
+}
+
+fn parse_silence(log: &str) -> Vec<DetectSegment> {
+    let mut start = None;
+    let mut segments = Vec::new();
+    for line in log.lines() {
+        if let Some(value) = labeled_f64(line, "silence_start:") {
+            start = Some(value);
+        } else if let Some(end) = labeled_f64(line, "silence_end:") {
+            if let Some(start) = start.take() {
+                if start < end {
+                    segments.push(DetectSegment {
+                        start_s: start,
+                        end_s: end,
+                        kind: "silence",
+                    });
+                }
+            }
+        }
+    }
+    segments
+}
+
+fn labeled_f64(line: &str, label: &str) -> Option<f64> {
+    let rest = line.split_once(label)?.1.trim();
+    let token = rest.split_whitespace().next()?;
+    token.parse().ok()
 }
