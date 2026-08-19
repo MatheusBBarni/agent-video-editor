@@ -1,8 +1,16 @@
+use crate::hw::Hw;
+
 pub fn with_bin(mut argv: Vec<String>, bin: &str) -> Vec<String> {
     if let Some(first) = argv.first_mut() {
         *first = bin.to_string();
     }
     argv
+}
+
+pub struct TrimOpts {
+    pub accurate: bool,
+    pub has_audio: bool,
+    pub hw: Hw,
 }
 
 pub fn trim_argv(
@@ -11,10 +19,9 @@ pub fn trim_argv(
     end_val: &str,
     input: &str,
     output: &str,
-    accurate: bool,
-    has_audio: bool,
+    opts: TrimOpts,
 ) -> Vec<String> {
-    if accurate {
+    if opts.accurate {
         let mut ffmpeg = vec![
             "ffmpeg".into(),
             "-y".into(),
@@ -26,8 +33,8 @@ pub fn trim_argv(
             "-i".into(),
             input.into(),
         ];
-        ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
-        if has_audio {
+        ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, opts.hw));
+        if opts.has_audio {
             ffmpeg.extend(["-c:a".into(), "aac".into()]);
         }
         push_faststart(&mut ffmpeg, output);
@@ -86,9 +93,9 @@ pub fn concat_from_mpegts_argv(
     ffmpeg
 }
 
-pub fn concat_argv(list_path: &str, output: &str) -> Vec<String> {
+pub fn concat_argv(list_path: &str, output: &str, hw: Hw) -> Vec<String> {
     let mut ffmpeg = concat_demuxer_prefix(list_path);
-    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, hw));
     ffmpeg.extend(["-c:a".into(), "aac".into()]);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -149,7 +156,13 @@ impl RotateDeg {
     }
 }
 
-pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) -> Vec<String> {
+pub fn vf_reencode_argv(
+    input: &str,
+    output: &str,
+    vf: &str,
+    has_audio: bool,
+    hw: Hw,
+) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -158,7 +171,7 @@ pub fn vf_reencode_argv(input: &str, output: &str, vf: &str, has_audio: bool) ->
         "-vf".into(),
         vf.into(),
     ];
-    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, hw));
     push_audio_copy(&mut ffmpeg, has_audio);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -229,7 +242,7 @@ pub fn atempo_filter(mut factor: f64) -> String {
     parts.join(",")
 }
 
-pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool) -> Vec<String> {
+pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool, hw: Hw) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
         "-y".into(),
@@ -241,7 +254,7 @@ pub fn speed_argv(input: &str, output: &str, factor: f64, has_audio: bool) -> Ve
     if has_audio {
         ffmpeg.extend(["-filter:a".into(), atempo_filter(factor)]);
     }
-    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, hw));
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
     ffmpeg
@@ -322,6 +335,7 @@ pub fn overlay_argv(
     output: &str,
     expr: &str,
     has_audio: bool,
+    hw: Hw,
 ) -> Vec<String> {
     let mut ffmpeg = vec![
         "ffmpeg".into(),
@@ -333,7 +347,7 @@ pub fn overlay_argv(
         "-filter_complex".into(),
         expr.into(),
     ];
-    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET));
+    ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, hw));
     push_audio_copy(&mut ffmpeg, has_audio);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -346,9 +360,10 @@ pub fn compress_argv(
     crf: u8,
     preset: &str,
     has_audio: bool,
+    hw: Hw,
 ) -> Vec<String> {
     let mut ffmpeg = vec!["ffmpeg".into(), "-y".into(), "-i".into(), input.into()];
-    ffmpeg.extend(reencode_video_args(crf, preset));
+    ffmpeg.extend(reencode_video_args(crf, preset, hw));
     push_audio_copy(&mut ffmpeg, has_audio);
     push_faststart(&mut ffmpeg, output);
     ffmpeg.push(output.into());
@@ -534,17 +549,39 @@ fn push_audio_copy(argv: &mut Vec<String>, has_audio: bool) {
 pub const DEFAULT_CRF: u8 = 23;
 pub const DEFAULT_PRESET: &str = "medium";
 
-pub fn reencode_video_args(crf: u8, preset: &str) -> Vec<String> {
-    vec![
+pub fn reencode_video_args(crf: u8, preset: &str, hw: Hw) -> Vec<String> {
+    let mut args = vec![
         "-c:v".into(),
-        "libx264".into(),
+        hw.codec().into(),
         "-pix_fmt".into(),
         "yuv420p".into(),
-        "-crf".into(),
-        crf.to_string(),
-        "-preset".into(),
-        preset.into(),
-    ]
+    ];
+    match hw {
+        Hw::None => {
+            args.extend([
+                "-crf".into(),
+                crf.to_string(),
+                "-preset".into(),
+                preset.into(),
+            ]);
+        }
+        Hw::VideoToolbox => {
+            args.extend(["-q:v".into(), videotoolbox_q(crf)]);
+        }
+        Hw::Nvenc => {
+            args.extend([
+                "-cq".into(),
+                crf.to_string(),
+                "-preset".into(),
+                preset.into(),
+            ]);
+        }
+    }
+    args
+}
+
+fn videotoolbox_q(crf: u8) -> String {
+    i32::from(crf).saturating_add(42).clamp(1, 100).to_string()
 }
 
 fn push_faststart(argv: &mut Vec<String>, output: &str) {

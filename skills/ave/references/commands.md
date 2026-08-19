@@ -224,4 +224,4 @@ ave --human info clip.mp4
 ave --verbose --progress resize clip.mp4 --preset square -o out.mp4
 ```
 
-`--human` prints text on stdout (success and failure). Agents should omit it. `--verbose` prints ffmpeg/ffprobe logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding.
+`--human` prints text on stdout (success and failure). Agents should omit it. `--verbose` prints ffmpeg/ffprobe logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding. `--hw none|videotoolbox|nvenc` swaps `-c:v` on re-encodes (`h264_videotoolbox` uses `-q:v`, not `-crf`). Copy ops stay `-c copy`. Unknown values are `unknown_hw`. Plans may set `"hw"`; CLI `--hw` wins.
