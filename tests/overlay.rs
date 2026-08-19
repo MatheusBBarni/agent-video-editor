@@ -127,8 +127,36 @@ fn overlay_xy_dry_run_uses_pixel_origin() {
         .iter()
         .find(|a| a.contains("overlay="))
         .expect("expected overlay filter");
-    assert!(
-        filter.contains("overlay=20:40"),
-        "pixel overlay: {filter}"
-    );
+    assert!(filter.contains("overlay=20:40"), "pixel overlay: {filter}");
+}
+
+#[test]
+fn overlay_position_and_x_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
+    fs::write(dir.path().join("logo.png"), b"placeholder").unwrap();
+
+    let assert = Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "overlay",
+            "in.mp4",
+            "--image",
+            "logo.png",
+            "--position",
+            "top-right",
+            "--x",
+            "1",
+            "-o",
+            "out.mp4",
+            "--dry-run",
+        ])
+        .assert()
+        .failure();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"], "conflicting_fields");
 }
