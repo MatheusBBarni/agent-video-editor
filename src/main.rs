@@ -372,7 +372,7 @@ fn run_cmd(plan: &str, workdir: Option<&str>, ctx: &Ctx, human: bool, cli_hw: Op
         Ok(p) => p,
         Err(e) => error::fail(error::Error::new("run", "bad_plan", e.to_string())),
     };
-    let mut ctx = Ctx {
+    let ctx = Ctx {
         hw: if cli_hw.is_some() {
             ctx.hw
         } else {

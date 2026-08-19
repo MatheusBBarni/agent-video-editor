@@ -191,10 +191,9 @@ fn hw_on_plan_applies_unless_cli_overrides() {
         .args(["run", "plan.json", "--dry-run"])
         .assert()
         .success();
-    let v: Value = serde_json::from_str(
-        &String::from_utf8_lossy(&from_plan.get_output().stdout).trim(),
-    )
-    .unwrap();
+    let v: Value =
+        serde_json::from_str(&String::from_utf8_lossy(&from_plan.get_output().stdout).trim())
+            .unwrap();
     let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
         .as_array()
         .unwrap()
@@ -212,10 +211,9 @@ fn hw_on_plan_applies_unless_cli_overrides() {
         .args(["--hw", "none", "run", "plan.json", "--dry-run"])
         .assert()
         .success();
-    let v: Value = serde_json::from_str(
-        &String::from_utf8_lossy(&from_cli.get_output().stdout).trim(),
-    )
-    .unwrap();
+    let v: Value =
+        serde_json::from_str(&String::from_utf8_lossy(&from_cli.get_output().stdout).trim())
+            .unwrap();
     let argv: Vec<&str> = v["steps"][0]["ffmpeg"]
         .as_array()
         .unwrap()

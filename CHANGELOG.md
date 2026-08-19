@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--hw none|videotoolbox|nvenc` selects the video encoder on re-encodes.
 - `ave schema` prints the `run` plan JSON Schema.
 - `ave run --workdir DIR` keeps relative plan outputs out of cwd.
 - `install-skill --provider` adds `codex`, `continue`, `windsurf`, and `copilot`.

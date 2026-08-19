@@ -16,9 +16,12 @@ ave run - < plan.json
 
 ```json
 {
+  "hw": "videotoolbox",
   "steps": [ { "op": "<verb>", "...": "..." } ]
 }
 ```
+
+Optional plan-root `hw` is `none` / `videotoolbox` / `nvenc`. CLI `--hw` wins if both are set.
 
 Explicit paths only. No `$prev`. A later step may name an earlier `"output"` as `"input"` / `"inputs"`. On `--dry-run` those files need not exist yet.
 

@@ -205,8 +205,7 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
             output,
             *accurate,
             audio.unwrap_or(false),
-            bin,
-            ctx.hw,
+            ctx,
         )),
         Op::Concat { inputs, output } => concat_job(inputs, output, ctx, bin),
         Op::CutOut {
@@ -467,16 +466,24 @@ fn trim_job(
     output: &str,
     accurate: bool,
     has_audio: bool,
-    bin: &str,
-    hw: Hw,
+    ctx: &Ctx,
 ) -> Job {
     let (end_flag, end_val) = end.ffmpeg_flag();
     Job {
         argv: recipes::with_bin(
             recipes::trim_argv(
-                from, end_flag, end_val, input, output, accurate, has_audio, hw,
+                from,
+                end_flag,
+                end_val,
+                input,
+                output,
+                recipes::TrimOpts {
+                    accurate,
+                    has_audio,
+                    hw: ctx.hw,
+                },
             ),
-            bin,
+            &ctx.ffmpeg,
         ),
         passes: None,
         cleanup: vec![],
@@ -683,8 +690,7 @@ fn keep_pieces_job(
             output,
             accurate,
             has_audio,
-            bin,
-            ctx.hw,
+            ctx,
         )),
         many => {
             let temps: Vec<String> = (0..many.len())
@@ -701,8 +707,7 @@ fn keep_pieces_job(
                         temp,
                         accurate,
                         has_audio,
-                        bin,
-                        ctx.hw,
+                        ctx,
                     )
                     .argv
                 })

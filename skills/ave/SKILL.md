@@ -53,7 +53,7 @@ ave install-skill --provider all --global
 
 ```text
 ave [--dry-run] [--copy-only] [--no-overwrite] [--ffmpeg PATH] [--ffprobe PATH]
-    [--human] [--verbose] [--progress] <CMD>
+    [--human] [--verbose] [--progress] [--hw none|videotoolbox|nvenc] <CMD>
 ```
 
 | Cmd | Args | Notes |
@@ -93,7 +93,7 @@ More examples: `references/commands.md`.
 
 Edit success includes `ok`, `op`, `output`, `duration_s`, `width`, `height`, `size_bytes`, `ffmpeg` (argv). `info` is additive: those probe fields plus `video_codec`, `audio_codec`, `fps`, `has_video`, `has_audio`, `rotate_deg`, `display_width`, `display_height`. `width`/`height` are coded samples; display size applies rotation. `detect` is `ok`, `op`, `kind`, `input`, `segments`, `ffmpeg`. `run` adds `steps`. Failure: `ok: false`, `error`, `message`, non-zero exit.
 
-Parse stdout as JSON unless `--human` (text for people; agents should omit it). `--verbose` prints ffmpeg logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding. Do not scrape ffmpeg banners from stdout.
+Parse stdout as JSON unless `--human` (text for people; agents should omit it). `--verbose` prints ffmpeg logs on stderr. `--progress` prints JSONL `{progress,time_s}` on stderr while encoding. `--hw none|videotoolbox|nvenc` swaps the video encoder on re-encodes (default `libx264`). Do not scrape ffmpeg banners from stdout.
 
 ## Encode policy
 

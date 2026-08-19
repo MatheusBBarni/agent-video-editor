@@ -7,17 +7,21 @@ pub fn with_bin(mut argv: Vec<String>, bin: &str) -> Vec<String> {
     argv
 }
 
+pub struct TrimOpts {
+    pub accurate: bool,
+    pub has_audio: bool,
+    pub hw: Hw,
+}
+
 pub fn trim_argv(
     from: &str,
     end_flag: &str,
     end_val: &str,
     input: &str,
     output: &str,
-    accurate: bool,
-    has_audio: bool,
-    hw: Hw,
+    opts: TrimOpts,
 ) -> Vec<String> {
-    if accurate {
+    if opts.accurate {
         let mut ffmpeg = vec![
             "ffmpeg".into(),
             "-y".into(),
@@ -29,8 +33,8 @@ pub fn trim_argv(
             "-i".into(),
             input.into(),
         ];
-        ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, hw));
-        if has_audio {
+        ffmpeg.extend(reencode_video_args(DEFAULT_CRF, DEFAULT_PRESET, opts.hw));
+        if opts.has_audio {
             ffmpeg.extend(["-c:a".into(), "aac".into()]);
         }
         push_faststart(&mut ffmpeg, output);

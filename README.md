@@ -106,7 +106,7 @@ Paths are relative to the current directory. A later step may use an earlier `ou
 ```
 ave [--dry-run] [--copy-only] [--no-overwrite]
     [--ffmpeg PATH] [--ffprobe PATH]
-    [--human] [--verbose] [--progress]
+    [--human] [--verbose] [--progress] [--hw none|videotoolbox|nvenc]
     <COMMAND>
 ```
 
@@ -119,6 +119,7 @@ ave [--dry-run] [--copy-only] [--no-overwrite]
 | `--human` | Text stdout instead of JSON. Agents should omit this |
 | `--verbose` | ffmpeg / ffprobe logs on stderr |
 | `--progress` | JSONL `{progress,time_s}` on stderr while encoding |
+| `--hw` | `none` (default `libx264`), `videotoolbox`, or `nvenc` on re-encodes |
 
 Timestamps: `HH:MM:SS`, `MM:SS`, or seconds (`90`, `90.5`).
 
