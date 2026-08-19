@@ -371,6 +371,16 @@ fn build_job(op: &Op, ctx: &Ctx) -> Result<Job, Error> {
                 })
             }
         }
+        Op::Frame {
+            input,
+            at,
+            output,
+        } => Ok(Job {
+            argv: recipes::with_bin(recipes::frame_argv(input, at, output), bin),
+            passes: None,
+            cleanup: vec![],
+            reencode: true,
+        }),
         Op::Info { .. } | Op::Doctor => Err(Error::new(op.name(), "internal", "not a mutating op")),
     }
 }

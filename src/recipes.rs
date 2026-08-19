@@ -335,6 +335,20 @@ pub fn mix_audio_argv(input: &str, audio: &str, output: &str) -> Vec<String> {
     ]
 }
 
+pub fn frame_argv(input: &str, at: &str, output: &str) -> Vec<String> {
+    vec![
+        "ffmpeg".into(),
+        "-y".into(),
+        "-ss".into(),
+        at.into(),
+        "-i".into(),
+        input.into(),
+        "-frames:v".into(),
+        "1".into(),
+        output.into(),
+    ]
+}
+
 pub fn convert_argv(input: &str, output: &str) -> Vec<String> {
     vec![
         "ffmpeg".into(),

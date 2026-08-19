@@ -139,6 +139,13 @@ enum Command {
         #[arg(short = 'o', long = "output")]
         output: Option<String>,
     },
+    Frame {
+        input: String,
+        #[arg(long)]
+        at: String,
+        #[arg(short = 'o', long = "output")]
+        output: Option<String>,
+    },
     /// Install the ave agent skill into one folder; symlink the rest
     #[command(name = "install-skill")]
     InstallSkill {
@@ -218,6 +225,7 @@ fn usage_op() -> &'static str {
             "replace-audio" => Some("replace-audio"),
             "extract-audio" => Some("extract-audio"),
             "speed" => Some("speed"),
+            "frame" => Some("frame"),
             "install-skill" => Some("install-skill"),
             _ => None,
         })
@@ -421,5 +429,19 @@ fn to_op(command: Command) -> Result<Op, error::Error> {
             output: require_output("speed", output)?,
             factor,
         }),
+        Command::Frame { input, at, output } => {
+            if op::parse_timestamp(&at).is_none() {
+                return Err(error::Error::new(
+                    "frame",
+                    "bad_timestamp",
+                    format!("invalid timestamp: {at}"),
+                ));
+            }
+            Ok(Op::Frame {
+                input,
+                at,
+                output: require_output("frame", output)?,
+            })
+        }
     }
 }

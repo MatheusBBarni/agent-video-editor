@@ -144,6 +144,11 @@ pub enum Op {
         input: String,
         output: String,
     },
+    Frame {
+        input: String,
+        at: String,
+        output: String,
+    },
     Info {
         input: String,
     },
@@ -164,6 +169,7 @@ impl Op {
             Self::Overlay { .. } => "overlay",
             Self::Compress { .. } => "compress",
             Self::Convert { .. } => "convert",
+            Self::Frame { .. } => "frame",
             Self::Info { .. } => "info",
             Self::Doctor => "doctor",
         }
@@ -181,7 +187,8 @@ impl Op {
             | Self::ReplaceAudio { output, .. }
             | Self::Overlay { output, .. }
             | Self::Compress { output, .. }
-            | Self::Convert { output, .. } => Some(output),
+            | Self::Convert { output, .. }
+            | Self::Frame { output, .. } => Some(output),
             Self::Info { .. } | Self::Doctor => None,
         }
     }
@@ -196,6 +203,7 @@ impl Op {
             | Self::ExtractAudio { input, .. }
             | Self::Compress { input, .. }
             | Self::Convert { input, .. }
+            | Self::Frame { input, .. }
             | Self::Info { input } => vec![input],
             Self::Concat { inputs, .. } => inputs.iter().map(String::as_str).collect(),
             Self::ReplaceAudio {
@@ -370,6 +378,21 @@ impl Op {
                 input: req("input")?,
                 output: req("output")?,
             }),
+            "frame" => {
+                let at = req("at")?;
+                if parse_timestamp(&at).is_none() {
+                    return Err(Error::new(
+                        "run",
+                        "bad_timestamp",
+                        format!("invalid timestamp: {at}"),
+                    ));
+                }
+                Ok(Self::Frame {
+                    input: req("input")?,
+                    at,
+                    output: req("output")?,
+                })
+            }
             "info" | "doctor" => Err(Error::new(
                 "run",
                 "unsupported_in_run",
