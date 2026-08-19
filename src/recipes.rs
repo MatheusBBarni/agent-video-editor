@@ -7,7 +7,7 @@ pub fn with_bin(mut argv: Vec<String>, bin: &str) -> Vec<String> {
 
 pub fn trim_argv(from: &str, to: &str, input: &str, output: &str, accurate: bool) -> Vec<String> {
     if accurate {
-        vec![
+        let mut ffmpeg = vec![
             "ffmpeg".into(),
             "-y".into(),
             "-accurate_seek".into(),
@@ -17,20 +17,10 @@ pub fn trim_argv(from: &str, to: &str, input: &str, output: &str, accurate: bool
             to.into(),
             "-i".into(),
             input.into(),
-            "-c:v".into(),
-            "libx264".into(),
-            "-pix_fmt".into(),
-            "yuv420p".into(),
-            "-crf".into(),
-            "23".into(),
-            "-preset".into(),
-            "medium".into(),
-            "-c:a".into(),
-            "aac".into(),
-            "-movflags".into(),
-            "+faststart".into(),
-            output.into(),
-        ]
+        ];
+        ffmpeg.extend(reencode_video_args());
+        ffmpeg.push(output.into());
+        ffmpeg
     } else {
         vec![
             "ffmpeg".into(),

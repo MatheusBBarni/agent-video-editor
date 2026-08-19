@@ -176,28 +176,32 @@ fn trim_accurate_dry_run_reencodes_instead_of_copy() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
     let v: Value = serde_json::from_str(stdout.trim()).expect("stdout must be JSON");
     assert_eq!(v["ok"], true);
-    let argv: Vec<&str> = v["ffmpeg"]
-        .as_array()
-        .expect("ffmpeg argv")
-        .iter()
-        .map(|x| x.as_str().unwrap())
-        .collect();
-    assert!(
-        !argv.windows(2).any(|w| w == ["-c", "copy"]),
-        "accurate trim must not stream-copy: {argv:?}"
-    );
-    assert!(argv.contains(&"libx264"), "expected libx264 in {argv:?}");
-    assert!(argv.contains(&"aac"), "expected aac in {argv:?}");
-    let seek = argv.iter().position(|&a| a == "-accurate_seek");
-    let ss = argv.iter().position(|&a| a == "-ss");
-    let input = argv.iter().position(|&a| a == "-i");
-    assert!(
-        matches!((seek, input), (Some(seek), Some(i)) if seek < i),
-        "-accurate_seek must be an input option (before -i): {argv:?}"
-    );
-    assert!(
-        matches!((ss, input), (Some(ss), Some(i)) if ss < i),
-        "-ss must appear before -i (input seek): {argv:?}"
+    assert_eq!(
+        v["ffmpeg"],
+        serde_json::json!([
+            "ffmpeg",
+            "-y",
+            "-accurate_seek",
+            "-ss",
+            "30",
+            "-to",
+            "105",
+            "-i",
+            "in.mp4",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "23",
+            "-preset",
+            "medium",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            "out.mp4"
+        ])
     );
 }
 
