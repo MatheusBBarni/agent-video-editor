@@ -85,6 +85,80 @@ fn convert_gif_pass1_failure_leaves_user_palette() {
     );
 }
 
+fn ffmpeg_available() -> bool {
+    std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn write_fixture(path: &std::path::Path) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=320x240:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:duration=1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-pix_fmt",
+            "yuv420p",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffmpeg");
+    assert!(
+        status.status.success(),
+        "ffmpeg fixture failed: {}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+}
+
+#[test]
+fn convert_gif_success_leaves_user_palette() {
+    if !ffmpeg_available() {
+        eprintln!("skipping: ffmpeg not on PATH");
+        return;
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    write_fixture(&dir.path().join("clip.mp4"));
+    fs::write(dir.path().join("palette.png"), b"user-palette").unwrap();
+
+    Command::cargo_bin("ave")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["convert", "clip.mp4", "-o", "out.gif"])
+        .assert()
+        .success();
+
+    assert!(dir.path().join("out.gif").exists());
+    assert_eq!(
+        fs::read(dir.path().join("palette.png")).unwrap(),
+        b"user-palette"
+    );
+    let extra: Vec<_> = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .filter(|name| {
+            let name = name.to_string_lossy();
+            name.starts_with("palette") && name != "palette.png"
+        })
+        .collect();
+    assert!(
+        extra.is_empty(),
+        "successful convert left extra palette files: {extra:?}"
+    );
+}
+
 fn argv_tokens(v: &Value) -> Vec<String> {
     let mut tokens = Vec::new();
     if let Some(ffmpeg) = v["ffmpeg"].as_array() {
