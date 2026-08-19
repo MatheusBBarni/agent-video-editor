@@ -44,6 +44,15 @@ pub fn execute(op: &Op, ctx: &Ctx) -> Result<Outcome, Error> {
             format!("input not found: {input}"),
         ));
     }
+    if *kind == Kind::Silence
+        && crate::probe::probed_has_audio(&ctx.ffprobe, input) == Some(false)
+    {
+        return Err(Error::new(
+            "detect",
+            "no_audio",
+            format!("input has no audio stream: {input}"),
+        ));
+    }
     let argv = recipes::with_bin(detect_argv(input, *kind), &ctx.ffmpeg);
     let segments = if ctx.dry_run {
         Vec::new()
