@@ -140,10 +140,7 @@ impl Op {
                 let _ = req("input")?;
                 let _ = req("from")?;
                 let to = step["to"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
-                let duration = step["duration"]
-                    .as_str()
-                    .filter(|s| !s.is_empty())
-                    .map(str::to_string);
+                let duration = json_string_or_number(&step["duration"]);
                 if to.is_none() && duration.is_none() {
                     return Err(Error::new(
                         "run",
@@ -298,6 +295,13 @@ impl Op {
             )),
         }
     }
+}
+
+fn json_string_or_number(value: &serde_json::Value) -> Option<String> {
+    if let Some(s) = value.as_str().filter(|s| !s.is_empty()) {
+        return Some(s.to_string());
+    }
+    value.as_number().map(ToString::to_string)
 }
 
 pub fn require_output(op: &'static str, output: Option<String>) -> Result<String, Error> {
