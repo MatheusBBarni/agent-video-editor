@@ -67,6 +67,19 @@ fn version_stays_human_and_prints_package_version() {
 }
 
 #[test]
+fn changelog_has_shipped_and_unreleased() {
+    let text = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/CHANGELOG.md"));
+    assert!(
+        text.contains("0.1.0"),
+        "CHANGELOG.md must mention shipped 0.1.0"
+    );
+    assert!(
+        text.contains("Unreleased"),
+        "CHANGELOG.md must have an Unreleased section"
+    );
+}
+
+#[test]
 fn ffmpeg_failure_message_is_short_and_not_a_banner() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("in.mp4"), b"placeholder").unwrap();
